@@ -1,0 +1,72 @@
+Business Source License 1.1 (BSL 1.1)
+
+Licensor: Claudio Palominos
+Licensed Work: Language Study Log (this repository, including all files unless otherwise noted)
+Additional Use Grant: You may make non-production, non-commercial use of the Licensed Work, including development, testing, and evaluation. Any production use (including internal production use or offering it as a hosted service) requires a separate commercial license from the Licensor.
+Change Date: 2028-09-21
+Change License: MIT
+
+================================================================
+TERMS
+
+1. License Grant
+   Subject to the terms below, the Licensor grants you a non-exclusive,
+   worldwide, non-transferable, royalty-free license to copy, modify,
+   create derivative works of, and redistribute the Licensed Work, solely
+   for Non-Production Use. “Non-Production Use” means any use that is
+   not Production Use.
+
+   “Production Use” means use of the Licensed Work, or any
+   modification or derivative of it, in any manner that is intended for
+   or directed toward third parties or end users, whether internal or
+   external, including (without limitation) providing it as part of a
+   service, a hosted or managed offering, or using it to process data
+   for any party other than for evaluation, development, or testing.
+
+2. Additional Use Grant
+   If an Additional Use Grant is stated above, you may exercise those
+   additional rights according to its terms.
+
+3. Change License on Change Date
+   On the Change Date, the license granted by this document will
+   automatically and permanently convert to the Change License stated
+   above for the Licensed Work as it exists on the Change Date.
+
+4. Redistribution
+   Any redistribution of the Licensed Work or a derivative work must
+   include a copy of this license and retain the “Licensor,” “Licensed
+   Work,” “Additional Use Grant,” “Change Date,” and “Change License”
+   notices above. You must also retain all copyright notices.
+
+5. Trademarks
+   This license does not grant you rights to use the Licensor’s names,
+   logos, or trademarks.
+
+6. Termination
+   If you materially breach this license, your rights terminate
+   automatically. Your rights may be reinstated if the Licensor
+   expressly grants reinstatement.
+
+7. Disclaimer of Warranty
+   THE LICENSED WORK IS PROVIDED “AS IS” WITHOUT WARRANTIES OR
+   CONDITIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING WITHOUT
+   LIMITATION ANY WARRANTIES OR CONDITIONS OF TITLE, NON-INFRINGEMENT,
+   MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+
+8. Limitation of Liability
+   IN NO EVENT WILL THE LICENSOR BE LIABLE FOR ANY DAMAGES OR OTHER
+   LIABILITY, WHETHER IN CONTRACT, TORT, OR OTHERWISE, ARISING FROM,
+   OUT OF, OR IN CONNECTION WITH THE LICENSED WORK OR THE USE OR OTHER
+   DEALINGS IN THE LICENSED WORK.
+
+9. Acceptance
+   By copying, modifying, or redistributing the Licensed Work, you
+   accept the terms of this license.
+
+================================================================
+Notes
+- This BSL 1.1 file is adapted for practical clarity. It preserves the
+  core terms (non-production only until the Change Date; converts to
+  MIT on the Change Date; redistribution and warranty terms).
+- For absolute textual fidelity, you may replace Sections 1–9 with the
+  canonical BSL 1.1 text and keep the parameter block above as-is.
