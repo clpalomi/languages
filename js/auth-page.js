@@ -8,7 +8,7 @@ const msg    = qs('#auth-msg');
 
 // NEW: OAuth UI refs
 const googleBtn = qs('#google-login');
-const fbBtn     = qs('#facebook-login');
+// const fbBtn     = qs('#facebook-login');
 const oauthMsg  = qs('#oauth-msg');
 
 // Preserve "next" target if provided (e.g., user hit a protected app URL)
@@ -67,4 +67,4 @@ async function startOAuth(provider) {
 
 // Button listeners
 googleBtn?.addEventListener('click', () => startOAuth('google'));
-fbBtn?.addEventListener('click', () => startOAuth('facebook'));
+// fbBtn?.addEventListener('click', () => startOAuth('facebook'));
