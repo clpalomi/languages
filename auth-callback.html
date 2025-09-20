@@ -1,0 +1,43 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Signing you in…</title>
+  <style> body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; padding:24px;} </style>
+  <script type="module">
+    import { supabase } from './js/client.js';
+    import { baseURL } from './js/utils.js';
+
+    // Keep ?next=... if provided; default to app.html
+    const params = new URLSearchParams(location.search);
+    const next = params.get('next') || (baseURL + 'app.html');
+
+    // Clean the URL hash (tokens) for aesthetics
+    if (location.hash.includes('access_token')) {
+      history.replaceState({}, '', location.pathname + location.search);
+    }
+
+    (async () => {
+      const go = () => location.replace(next);
+
+      // If session already present, redirect immediately
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) return go();
+
+      // Else wait for SIGNED_IN
+      supabase.auth.onAuthStateChange((event) => {
+        if (event === 'SIGNED_IN') go();
+      });
+
+      // Fallback: poll once after a short delay (covers rare race conditions)
+      setTimeout(async () => {
+        const { data: { session: s } } = await supabase.auth.getSession();
+        if (s?.user) go();
+      }, 500);
+    })();
+  </script>
+</head>
+<body>
+  <p>Signing you in…</p>
+</body>
+</html>
