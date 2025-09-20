@@ -19,7 +19,9 @@
   };
 
   // 1) First let Supabase read the tokens (DON'T clear the hash yet)
+  console.log('callback loaded', location.href);
   const { data: { session } } = await supabase.auth.getSession();
+  console.log('session immediately?', !!session);
   if (session?.user) {
     go();
   } else {
