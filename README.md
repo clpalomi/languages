@@ -1,2 +1,2 @@
-# languages
+# Languages
 Language learning
