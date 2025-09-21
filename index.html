@@ -30,15 +30,37 @@
     box-sizing: border-box;
   }
 
-/* Keep your own app buttons full-width, but NOT the Google one */
-button:not(.gsi-material-button) { width: 100%; }
+  /* Keep your own app buttons full-width, but NOT the Google one */
+  button.btn-full { width: 100%; display: block; }
 
+  /* Never touch the Google button with the generic styles */
+  button.gsi-material-button { border: none; padding: 0; } /* neutralize base */
+  
+  button { cursor:pointer; }
+  .muted { color:#666; font-size:12px; }
 
-    
-    button { cursor:pointer; }
-    .muted { color:#666; font-size:12px; }
-  </style>
-  <script type="module" src="./js/auth-page.js"></script>
+  /* Official-like sizing for Google's material button */
+.gsi-material-button {
+  width: auto;
+  height: 40px;
+  border: 1px solid #747775;
+  border-radius: 4px;
+  padding: 0 12px;
+  background:#fff;
+  color:#1f1f1f;
+  font: 500 14px/1 Roboto, system-ui, -apple-system, Segoe UI, Helvetica, Arial, sans-serif;
+  letter-spacing:.25px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  box-sizing: border-box;
+}
+.gsi-material-button .gsi-material-button-icon { width:18px; height:18px; }
+.gsi-material-button-content-wrapper { display:flex; align-items:center; gap:10px; height:100%; }
+  
+</style>
+<script type="module" src="./js/auth-page.js"></script>
 </head>
 <body>
   <div class="card">
@@ -70,7 +92,6 @@ button:not(.gsi-material-button) { width: 100%; }
       </svg>
     </div>
     <span class="gsi-material-button-contents">Sign in with Google</span>
-    <span class="gsi-material-button-contents-hidden">Sign in with Google</span>
   </div>
 </button>
 
