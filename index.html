@@ -20,6 +20,53 @@
       box-sizing: border-box;  /* belt-and-suspenders for older UAs */
     }
 
+    /* Google-style button */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  max-width: 100%;
+  height: 40px;                 /* recommended minimum */
+  padding: 0 14px;
+  border-radius: 4px;           /* Google buttons are fairly square */
+  border: 1px solid #dadce0;
+  background: #fff;
+  color: #3c4043;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  box-sizing: border-box;
+  transition: background .15s ease, border-color .15s ease, box-shadow .15s ease;
+}
+
+.btn:hover { background: #f6f9fe; border-color: #d2d6db; }
+.btn:active { background: #eef2f7; }
+.btn:focus { outline: none; box-shadow: 0 0 0 3px rgba(26,115,232,.3); } /* #1a73e8 focus ring */
+
+.btn[disabled] { opacity: .6; cursor: not-allowed; }
+
+.btn-google .google-icon {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  display: inline-block;
+}
+
+/* Dark mode (optional) */
+@media (prefers-color-scheme: dark) {
+  .btn {
+    background: #202124;
+    color: #e8eaed;
+    border-color: #5f6368;
+  }
+  .btn:hover { background: #24272b; border-color: #6e7379; }
+  .btn:active { background: #1d1f22; }
+}
+
+
     button { cursor:pointer; }
     .muted { color:#666; font-size:12px; }
   </style>
