@@ -5,63 +5,115 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Language study log • Sign in</title>
   <style>
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; margin:0; padding:24px;}
-    .card { max-width: 560px; margin:0 auto; border:1px solid #ddd; border-radius:12px; padding:18px;}
-    h1 { margin-top:0; }
-    label { display:block; font-size:12px; margin:12px 0 6px; color:#555; }
-    // input, button { padding:10px; border-radius:8px; border:1px solid #ccc; width:100%; }
-    /* Inputs/selects still full-width */
-  input, select {
-    padding: 10px;
-    border-radius: 8px;
-    border: 1px solid #ccc;
-    width: 100%;
-    max-width: 100%;
-    display: block;
-    box-sizing: border-box;
-  }
-
-  /* Buttons default (no forced width) */
-  button {
-    padding: 10px;
-    border-radius: 8px;
-    border: 1px solid #ccc;
-    display: block;
-    box-sizing: border-box;
-  }
-
-  /* Keep your own app buttons full-width, but NOT the Google one */
-  button.btn-full { width: 100%; display: block; }
-
-  /* Never touch the Google button with the generic styles */
-  button.gsi-material-button { border: none; padding: 0; } /* neutralize base */
-  
-  button { cursor:pointer; }
-  .muted { color:#666; font-size:12px; }
-
-  /* Official-like sizing for Google's material button */
-.gsi-material-button {
-  width: auto;
-  height: 40px;
-  border: 1px solid #747775;
-  border-radius: 4px;
-  padding: 0 12px;
-  background:#fff;
-  color:#1f1f1f;
-  font: 500 14px/1 Roboto, system-ui, -apple-system, Segoe UI, Helvetica, Arial, sans-serif;
-  letter-spacing:.25px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  box-sizing: border-box;
+    /* ===== Lovable-inspired skin (drop-in) ===== */
+:root{
+  --accent:#7c3aed;         /* tweak for your brand */
+  --radius:14px;
 }
-.gsi-material-button .gsi-material-button-icon { width:18px; height:18px; }
-.gsi-material-button-content-wrapper { display:flex; align-items:center; gap:10px; height:100%; }
-.gsi-material-button { margin: 0 auto; }
+*,*::before,*::after{ box-sizing:border-box; }
+
+body{
+  margin:0; padding:32px;
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  color:#111827;
+  /* soft gradient background */
+  background:
+    radial-gradient(1200px 600px at -10% -10%, #eef2ff 0%, transparent 60%),
+    radial-gradient(1000px 500px at 110% -20%, #fce7f3 0%, transparent 60%),
+    linear-gradient(#fafafa, #f7f7f9);
+}
+
+/* Card */
+.card{
+  max-width:720px; margin:0 auto;
+  padding:24px;
+  border-radius:var(--radius);
+  border:1px solid #e5e7eb;
+  background:rgba(255,255,255,.85);
+  backdrop-filter: blur(8px);
+  box-shadow:0 10px 30px rgba(17,24,39,.06);
+}
+
+h1{ margin:0 0 8px; font-size:28px; font-weight:700; letter-spacing:-.02em; }
+.muted{ color:#6b7280; font-size:12px; }
+
+/* Form controls */
+label{ display:block; font-size:12px; font-weight:600; color:#6b7280; margin:12px 0 6px; }
+
+input, select{
+  width:100%; height:44px; padding:10px 12px;
+  border-radius:10px; border:1px solid #e5e7eb; background:#fff; outline:0;
+  transition: box-shadow .2s, border-color .2s, background .2s;
+}
+input:focus, select:focus{
+  border-color:var(--accent);
+  box-shadow:0 0 0 3px rgba(124,58,237,.2);
+}
+
+/* Buttons (base) */
+button{
+  height:44px; padding:0 16px;
+  border-radius:10px; border:1px solid #e5e7eb; background:#fff; color:#111827;
+  font-weight:600; cursor:pointer;
+  transition: background .2s, border-color .2s, box-shadow .2s, transform .02s;
+}
+button:hover{ background:#f9fafb; }
+button:active{ transform: translateY(1px); }
+
+/* Primary action */
+#save{
+  width:100%;
+  background:var(--accent); border-color:var(--accent); color:#fff;
+}
+#save:hover{ background:#6d28d9; border-color:#6d28d9; }
+#signout{ border-color:#e5e7eb; background:#fff; }
+#signout:hover{ background:#f9fafb; }
+
+/* Layout */
+.row{ display:grid; grid-template-columns:1fr 1fr; gap:12px; align-items:end; }
+@media (max-width:640px){ .row{ grid-template-columns:1fr; } }
+#status{ margin-left:12px; }
+
+/* Table */
+table{ width:100%; border-collapse:collapse; margin-top:16px; }
+th,td{ padding:10px; border-bottom:1px solid #f3f4f6; }
+th{ font-size:12px; color:#6b7280; font-weight:600; }
+.right{ text-align:right; }
+
+/* Hide/show helper */
+.hidden{ display:none; }
+
+/* Google button — use your generated markup with class gsi-material-button */
+.gsi-material-button{
+  width:auto; height:40px; padding:0 12px;
+  border:1px solid #747775; border-radius:4px; background:#fff; color:#1f1f1f;
+  font:500 14px/1 Roboto, system-ui, -apple-system, Segoe UI, Helvetica, Arial, sans-serif;
+  letter-spacing:.25px;
+  display:inline-flex; align-items:center; justify-content:center; gap:10px;
+}
+.gsi-material-button .gsi-material-button-icon{ width:18px; height:18px; }
+.gsi-material-button-content-wrapper{ display:flex; align-items:center; gap:10px; height:100%; }
+
+/* Optional: center the Google button in your form */
+#google-login{ margin:8px auto 0; }
+
+/* Dark mode polish */
+@media (prefers-color-scheme: dark){
+  body{ background: linear-gradient(#0f1115,#0b0e14); color:#e5e7eb; }
+  .card{ background: rgba(22,24,29,.7); border-color:#2a2f39; }
+  input, select{ background:#111318; border-color:#2a2f39; color:#e5e7eb; }
+  input:focus, select:focus{ box-shadow:0 0 0 3px rgba(124,58,237,.28); }
+  button{ background:#171a21; border-color:#2a2f39; color:#e5e7eb; }
+  #save{ background:var(--accent); border-color:var(--accent); color:#fff; }
+  table th, .muted{ color:#9aa3b2; }
+  .gsi-material-button{ background:#131314; border-color:#8e918f; color:#e3e3e3; }
+}
+
 
   
-</style>
+  </style>
+
+  
 <script type="module" src="./js/auth-page.js"></script>
 </head>
 <body>
