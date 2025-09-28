@@ -5,153 +5,216 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Language study log • Sign in</title>
   <style>
-    /* ===== Lovable-inspired skin (drop-in) ===== */
-:root{
-  --accent:#7c3aed;         /* tweak for your brand */
-  --radius:14px;
-}
-*,*::before,*::after{ box-sizing:border-box; }
+    /* ===== Design tokens (mirror your React UI naming) ===== */
+    :root{
+      --primary: #6d28d9;            /* learning-primary */
+      --primary-600:#7c3aed;         /* slightly brighter */
+      --primary-400:#a78bfa;
+      --bg-start:#f6f7ff;
+      --bg-end:#f9fafb;
+      --card-bg: rgba(255,255,255,.9);
+      --radius: 16px;
+      --shadow-md: 0 10px 30px rgba(17,24,39,.08);
+      --muted:#6b7280;
+      --border:#e5e7eb;
+    }
+    @media (prefers-color-scheme: dark){
+      :root{
+        --bg-start:#0f1117;
+        --bg-end:#0b0e14;
+        --card-bg: rgba(22,24,29,.7);
+        --border:#2a2f39;
+        --muted:#9aa3b2;
+        --shadow-md: 0 12px 40px rgba(0,0,0,.35);
+      }
+    }
 
-body{
-  margin:0; padding:32px;
-  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-  color:#111827;
-  /* soft gradient background */
-  background:
-    radial-gradient(1200px 600px at -10% -10%, #eef2ff 0%, transparent 60%),
-    radial-gradient(1000px 500px at 110% -20%, #fce7f3 0%, transparent 60%),
-    linear-gradient(#fafafa, #f7f7f9);
-}
+    /* Reset */
+    *,*::before,*::after{ box-sizing:border-box; }
+    body{
+      margin:0; padding:24px;
+      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      color:#111827;
+      background:
+        radial-gradient(1000px 600px at -10% -10%, #eef2ff 0%, transparent 60%),
+        radial-gradient(900px 500px at 110% -20%, #fce7f3 0%, transparent 60%),
+        linear-gradient(var(--bg-start), var(--bg-end));
+      min-height:100svh;
+      display:grid; place-items:center;
+    }
+    @media (prefers-color-scheme: dark){
+      body{ color:#e5e7eb; }
+    }
 
-/* Card */
-.card{
-  max-width:720px; margin:0 auto;
-  padding:24px;
-  border-radius:var(--radius);
-  border:1px solid #e5e7eb;
-  background:rgba(255,255,255,.85);
-  backdrop-filter: blur(8px);
-  box-shadow:0 10px 30px rgba(17,24,39,.06);
-}
+    /* Card = shadcn/ui vibes */
+    .card{
+      width:100%; max-width: 420px; border:1px solid var(--border);
+      background: var(--card-bg); backdrop-filter: blur(8px);
+      border-radius: var(--radius); box-shadow: var(--shadow-md);
+      overflow:hidden;
+    }
+    .card-header{ padding:28px 28px 8px; text-align:center; }
+    .card-title{ margin:0; font-weight:800; letter-spacing:-.02em; font-size:26px;
+      background: linear-gradient(90deg, var(--primary-600), var(--primary-400));
+      -webkit-background-clip:text; background-clip:text; color:transparent;
+    }
+    .card-sub{ margin:10px auto 0; max-width: 36ch; font-size: 13px; color: var(--muted); }
+    .card-content{ padding: 20px 28px 28px; }
 
-h1{ margin:0 0 8px; font-size:28px; font-weight:700; letter-spacing:-.02em; }
-.muted{ color:#6b7280; font-size:12px; }
+    /* Form */
+    .field{ margin-top:14px; }
+    label{ display:block; font-size:12px; font-weight:600; color:var(--muted); margin-bottom:6px; }
+    input[type="email"]{
+      width:100%; height:44px; padding:10px 12px; border-radius:12px;
+      border:1px solid var(--border); background:#fff; color:#111827;
+      transition: box-shadow .2s, border-color .2s, background .2s;
+      outline:0;
+    }
+    input::placeholder{ color:#9aa3af; }
+    input:focus{
+      border-color: var(--primary-600);
+      box-shadow:0 0 0 3px color-mix(in srgb, var(--primary-600) 25%, transparent);
+    }
+    @media (prefers-color-scheme: dark){
+      input[type="email"]{ background:#111318; color:#e5e7eb; }
+    }
 
-/* Form controls */
-label{ display:block; font-size:12px; font-weight:600; color:#6b7280; margin:12px 0 6px; }
+    /* Buttons */
+    .btn{
+      height:44px; padding:0 14px; border-radius:12px; border:1px solid var(--border);
+      font-weight:600; cursor:pointer; width:100%;
+      display:inline-flex; align-items:center; justify-content:center; gap:10px;
+      transition: transform .02s, filter .15s, background .2s, border-color .2s;
+      user-select:none;
+    }
+    .btn:active{ transform: translateY(1px); }
 
-input, select{
-  width:100%; height:44px; padding:10px 12px;
-  border-radius:10px; border:1px solid #e5e7eb; background:#fff; outline:0;
-  transition: box-shadow .2s, border-color .2s, background .2s;
-}
-input:focus, select:focus{
-  border-color:var(--accent);
-  box-shadow:0 0 0 3px rgba(124,58,237,.2);
-}
+    .btn-primary{
+      color:#fff; border-color: transparent;
+      background: linear-gradient(180deg, var(--primary-600), var(--primary));
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.12), 0 6px 20px rgba(124,58,237,.28);
+    }
+    .btn-primary:hover{ filter: brightness(1.05); }
 
-/* Buttons (base) */
-button{
-  height:44px; padding:0 16px;
-  border-radius:10px; border:1px solid #e5e7eb; background:#fff; color:#111827;
-  font-weight:600; cursor:pointer;
-  transition: background .2s, border-color .2s, box-shadow .2s, transform .02s;
-}
-button:hover{ background:#f9fafb; }
-button:active{ transform: translateY(1px); }
+    .btn-outline{
+      background:#fff; color:#111827;
+    }
+    .btn-outline:hover{ background:#f9fafb; }
+    @media (prefers-color-scheme: dark){
+      .btn-outline{ background:#171a21; color:#e5e7eb; }
+      .btn-outline:hover{ background:#1b2029; }
+    }
 
-/* Primary action */
-#save{
-  width:100%;
-  background:var(--accent); border-color:var(--accent); color:#fff;
-}
-#save:hover{ background:#6d28d9; border-color:#6d28d9; }
-#signout{ border-color:#e5e7eb; background:#fff; }
-#signout:hover{ background:#f9fafb; }
+    .icon{ width:18px; height:18px; display:inline-block; }
 
-/* Layout */
-.row{ display:grid; grid-template-columns:1fr 1fr; gap:12px; align-items:end; }
-@media (max-width:640px){ .row{ grid-template-columns:1fr; } }
-#status{ margin-left:12px; }
+    /* Divider */
+    .divider{
+      position:relative; margin:18px 0; height:20px; text-align:center;
+      color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.08em;
+    }
+    .divider::before{
+      content:""; position:absolute; left:0; right:0; top:50%;
+      border-top:1px solid var(--border);
+    }
+    .divider span{
+      position:relative; padding:0 8px; background: var(--card-bg);
+    }
 
-/* Table */
-table{ width:100%; border-collapse:collapse; margin-top:16px; }
-th,td{ padding:10px; border-bottom:1px solid #f3f4f6; }
-th{ font-size:12px; color:#6b7280; font-weight:600; }
-.right{ text-align:right; }
+    /* Helper texts */
+    .muted{ color:var(--muted); font-size:12px; text-align:center; }
+    #auth-msg, #oauth-msg{
+      min-height: 18px; margin-top: 8px;
+    }
+    /* Accessible live regions */
+    [aria-live]{ padding-top:4px; }
 
-/* Hide/show helper */
-.hidden{ display:none; }
+    /* Google button skin (keeps your SVG) */
+    .gsi-material-button{
+      height:44px; padding:0 14px; border-radius:12px;
+      border:1px solid #747775; background:#fff; color:#1f1f1f;
+      font:600 14px/1 Roboto, system-ui, -apple-system, Segoe UI, Helvetica, Arial, sans-serif;
+      display:inline-flex; align-items:center; justify-content:center; gap:10px; width:100%;
+      transition: background .2s, transform .02s;
+    }
+    .gsi-material-button:hover{ background:#f9fafb; }
+    .gsi-material-button:active{ transform: translateY(1px); }
+    .gsi-material-button .gsi-material-button-icon{ width:18px; height:18px; display:grid; place-items:center; }
 
-/* Google button — use your generated markup with class gsi-material-button */
-.gsi-material-button{
-  width:auto; height:40px; padding:0 12px;
-  border:1px solid #747775; border-radius:4px; background:#fff; color:#1f1f1f;
-  font:500 14px/1 Roboto, system-ui, -apple-system, Segoe UI, Helvetica, Arial, sans-serif;
-  letter-spacing:.25px;
-  display:inline-flex; align-items:center; justify-content:center; gap:10px;
-}
-.gsi-material-button .gsi-material-button-icon{ width:18px; height:18px; }
-.gsi-material-button-content-wrapper{ display:flex; align-items:center; gap:10px; height:100%; }
+    @media (prefers-color-scheme: dark){
+      .gsi-material-button{ background:#131314; border-color:#8e918f; color:#e3e3e3; }
+    }
 
-/* Optional: center the Google button in your form */
-#google-login{ margin:8px auto 0; }
-
-/* Dark mode polish */
-@media (prefers-color-scheme: dark){
-  body{ background: linear-gradient(#0f1115,#0b0e14); color:#e5e7eb; }
-  .card{ background: rgba(22,24,29,.7); border-color:#2a2f39; }
-  input, select{ background:#111318; border-color:#2a2f39; color:#e5e7eb; }
-  input:focus, select:focus{ box-shadow:0 0 0 3px rgba(124,58,237,.28); }
-  button{ background:#171a21; border-color:#2a2f39; color:#e5e7eb; }
-  #save{ background:var(--accent); border-color:var(--accent); color:#fff; }
-  table th, .muted{ color:#9aa3b2; }
-  .gsi-material-button{ background:#131314; border-color:#8e918f; color:#e3e3e3; }
-}
-
-
-  
+    /* Small HR reset if used anywhere */
+    hr{ border:none; border-top:1px solid var(--border); }
   </style>
-
-  
-<script type="module" src="./js/auth-page.js"></script>
+  <script type="module" src="./js/auth-page.js"></script>
 </head>
 <body>
-  <div class="card">
-    <h1>Sign in</h1>
-    <p class="muted">We’ll email you a magic link. You’ll be redirected to the app after confirming.</p>
+  <main class="card" role="main">
+    <header class="card-header">
+      <h1 class="card-title">Sign In</h1>
+      <p class="card-sub">We'll email you a magic link. You'll be redirected to the app after confirming.</p>
+    </header>
 
-    <form id="auth-form">
-      <label for="email">Email</label>
-      <input id="email" type="email" placeholder="you@example.com" required />
-      <button id="send-link" type="submit">Send magic link</button>
-    </form>
-    <p class="muted" id="auth-msg"></p>
+    <section class="card-content">
+      <!-- Magic link form -->
+      <form id="auth-form" novalidate>
+        <div class="field">
+          <label for="email">Email</label>
+          <input id="email" type="email" placeholder="you@example.com" required autocomplete="email" />
+        </div>
 
-    <!-- Add below the magic-link form in index.html -->
-    <hr style="margin:16px 0;border:none;border-top:1px solid #eee">
+        <button id="send-link" type="submit" class="btn btn-primary" aria-busy="false">
+          <!-- Mail icon -->
+          <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M4 6h16v12H4z" stroke="currentColor" stroke-width="1.5" rx="2" ry="2"/>
+            <path d="m4 7 8 6 8-6" stroke="currentColor" stroke-width="1.5" fill="none"/>
+          </svg>
+          <span>Send Magic Link</span>
+        </button>
 
+        <p class="muted" id="auth-msg" aria-live="polite"></p>
+      </form>
 
-    <button id="google-login" type="button" class="gsi-material-button" aria-label="Sign in with Google" title="Sign in with Google">
-  <div class="gsi-material-button-state"></div>
-  <div class="gsi-material-button-content-wrapper">
-    <div class="gsi-material-button-icon">
-      <!-- (keep the exact SVG you pasted) -->
-      <svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" xmlns:xlink="http://www.w3.org/1999/xlink" style="display:block">
-        <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
-        <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
-        <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
-        <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
-        <path fill="none" d="M0 0h48v48H0z"/>
-      </svg>
-    </div>
-    <span class="gsi-material-button-contents">Sign in with Google</span>
-  </div>
-</button>
+      <!-- Divider -->
+      <div class="divider" aria-hidden="true"><span>Or continue with</span></div>
 
+      <!-- Google OAuth -->
+      <button id="google-login" type="button" class="gsi-material-button" aria-label="Sign in with Google" title="Sign in with Google">
+        <div class="gsi-material-button-icon">
+          <!-- keep exact Google SVG -->
+          <svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" style="display:block">
+            <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+            <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+            <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+            <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+            <path fill="none" d="M0 0h48v48H0z"/>
+          </svg>
+        </div>
+        <span class="gsi-material-button-contents">Continue with Google</span>
+      </button>
 
-    <p class="muted" id="oauth-msg"></p>
+      <p class="muted" id="oauth-msg" aria-live="polite"></p>
+    </section>
+  </main>
 
-  </div>
+  <!-- Optional tiny progressive enhancement to mirror "isLoading" feedback -->
+  <script>
+    const form = document.getElementById('auth-form');
+    const sendBtn = document.getElementById('send-link');
+    const email = document.getElementById('email');
+    const authMsg = document.getElementById('auth-msg');
+
+    form?.addEventListener('submit', () => {
+      sendBtn.setAttribute('aria-busy','true');
+      sendBtn.disabled = true;
+      authMsg.textContent = 'Sending…';
+      setTimeout(() => {
+        // auth-page.js will overwrite this with real status; this is just a quick UX touch.
+        sendBtn.removeAttribute('aria-busy');
+        sendBtn.disabled = false;
+      }, 3000);
+    });
+  </script>
 </body>
 </html>
