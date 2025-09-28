@@ -4,107 +4,86 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Language study log • Sign in</title>
-  
   <style>
-  /* ===== Lovable-inspired skin (drop-in) ===== */
+    /* ===== Lovable-inspired skin (drop-in) ===== */
 :root{
-  --accent: #7c3aed;            /* brand accent (violet) */
-  --accent-600: #6d28d9;
-  --text: #0f172a;               /* slate-900 */
-  --muted: #64748b;              /* slate-500 */
-  --border: #e5e7eb;             /* gray-200 */
-  --ring: rgba(124,58,237,.25);  /* accent focus ring */
-  --radius: 16px;
+  --accent:#7c3aed;         /* tweak for your brand */
+  --radius:14px;
 }
+*,*::before,*::after{ box-sizing:border-box; }
 
-*,*::before,*::after{ box-sizing: border-box; }
-
-html,body{ height:100%; }
 body{
   margin:0; padding:32px;
   font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-  color: var(--text);
+  color:#111827;
+  /* soft gradient background */
   background:
     radial-gradient(1200px 600px at -10% -10%, #eef2ff 0%, transparent 60%),
-    radial-gradient(900px 500px at 120% -20%, #fce7f3 0%, transparent 60%),
-    linear-gradient(#fafafa, #f7f7fb);
+    radial-gradient(1000px 500px at 110% -20%, #fce7f3 0%, transparent 60%),
+    linear-gradient(#fafafa, #f7f7f9);
 }
 
 /* Card */
 .card{
-  max-width: 760px;
-  margin: 0 auto;
-  padding: 28px;
-  border-radius: var(--radius);
-  border: 1px solid var(--border);
-  background: rgba(255,255,255,.85);
-  backdrop-filter: blur(10px);
-  box-shadow:
-    0 10px 25px rgba(2,6,23,.06),
-    0 1px 0 rgba(255,255,255,.6) inset;
+  max-width:720px; margin:0 auto;
+  padding:24px;
+  border-radius:var(--radius);
+  border:1px solid #e5e7eb;
+  background:rgba(255,255,255,.85);
+  backdrop-filter: blur(8px);
+  box-shadow:0 10px 30px rgba(17,24,39,.06);
 }
 
-h1{ margin:0 0 6px; font-size:28px; font-weight:700; letter-spacing:-.02em; }
-.muted{ color: var(--muted); font-size:12px; }
+h1{ margin:0 0 8px; font-size:28px; font-weight:700; letter-spacing:-.02em; }
+.muted{ color:#6b7280; font-size:12px; }
 
-/* Layout rows */
-.row{ display:grid; grid-template-columns:1fr 1fr; gap: 14px; align-items:end; }
-@media (max-width: 640px){ .row{ grid-template-columns:1fr; } }
+/* Form controls */
+label{ display:block; font-size:12px; font-weight:600; color:#6b7280; margin:12px 0 6px; }
 
-/* Labels & controls */
-label{ display:block; font-size:12px; font-weight:600; color: var(--muted); margin:12px 0 6px; }
-
-/* Inputs/selects full-width; consistent height */
 input, select{
-  width:100%; height:46px; padding:10px 12px;
-  border-radius:12px; border:1px solid var(--border); background:#fff; outline:0;
+  width:100%; height:44px; padding:10px 12px;
+  border-radius:10px; border:1px solid #e5e7eb; background:#fff; outline:0;
   transition: box-shadow .2s, border-color .2s, background .2s;
 }
 input:focus, select:focus{
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--ring);
+  border-color:var(--accent);
+  box-shadow:0 0 0 3px rgba(124,58,237,.2);
 }
 
-/* Buttons: base (do NOT force 100% width globally) */
+/* Buttons (base) */
 button{
-  height:46px; padding:0 16px; border-radius:12px;
-  border:1px solid var(--border); background:#fff; color:var(--text);
-  font-weight:600; cursor:pointer; display:inline-flex; align-items:center; justify-content:center;
-  gap:8px; transition: background .2s, border-color .2s, box-shadow .2s, transform .02s;
+  height:44px; padding:0 16px;
+  border-radius:10px; border:1px solid #e5e7eb; background:#fff; color:#111827;
+  font-weight:600; cursor:pointer;
+  transition: background .2s, border-color .2s, box-shadow .2s, transform .02s;
 }
 button:hover{ background:#f9fafb; }
 button:active{ transform: translateY(1px); }
 
-/* Primary action (Save) spans full width */
+/* Primary action */
 #save{
   width:100%;
-  background: var(--accent); border-color: var(--accent); color:#fff;
+  background:var(--accent); border-color:var(--accent); color:#fff;
 }
-#save:hover{ background: var(--accent-600); border-color: var(--accent-600); }
-
-/* Secondary actions */
-#signout{ background:#fff; border-color: var(--border); }
+#save:hover{ background:#6d28d9; border-color:#6d28d9; }
+#signout{ border-color:#e5e7eb; background:#fff; }
 #signout:hover{ background:#f9fafb; }
 
-/* Inline status */
-#status{ margin-left:12px; color: var(--muted); }
+/* Layout */
+.row{ display:grid; grid-template-columns:1fr 1fr; gap:12px; align-items:end; }
+@media (max-width:640px){ .row{ grid-template-columns:1fr; } }
+#status{ margin-left:12px; }
 
-/* Divider style (if you add OAuth “or continue with”) */
-.hr{ position:relative; margin:10px 0; height:20px; }
-.hr::before{ content:""; position:absolute; left:0; right:0; top:50%; border-top:1px solid var(--border); }
-.hr span{ position:relative; display:inline-block; padding:0 8px; background:rgba(255,255,255,.85); color:var(--muted); font-size:11px; margin:0 auto; }
-
-/* Table polish */
-table{ width:100%; border-collapse:collapse; margin-top:18px; }
-th, td{ padding:12px; border-bottom:1px solid #f1f5f9; }
-th{ font-size:12px; color: var(--muted); font-weight:700; text-transform:uppercase; letter-spacing:.03em; }
-tbody tr:hover{ background:#fafafa; }
+/* Table */
+table{ width:100%; border-collapse:collapse; margin-top:16px; }
+th,td{ padding:10px; border-bottom:1px solid #f3f4f6; }
+th{ font-size:12px; color:#6b7280; font-weight:600; }
 .right{ text-align:right; }
 
-/* Hide util */
+/* Hide/show helper */
 .hidden{ display:none; }
 
-/* Google button (only if you include Google’s generated markup with this class) */
+/* Google button — use your generated markup with class gsi-material-button */
 .gsi-material-button{
   width:auto; height:40px; padding:0 12px;
   border:1px solid #747775; border-radius:4px; background:#fff; color:#1f1f1f;
@@ -115,15 +94,18 @@ tbody tr:hover{ background:#fafafa; }
 .gsi-material-button .gsi-material-button-icon{ width:18px; height:18px; }
 .gsi-material-button-content-wrapper{ display:flex; align-items:center; gap:10px; height:100%; }
 
-/* Dark mode */
+/* Optional: center the Google button in your form */
+#google-login{ margin:8px auto 0; }
+
+/* Dark mode polish */
 @media (prefers-color-scheme: dark){
-  body{ background: linear-gradient(#0f1117,#0c111b); color:#e5e7eb; }
-  .card{ background: rgba(20,24,30,.7); border-color:#2a2f39; }
-  input, select{ background:#121621; border-color:#2a2f39; color:#e5e7eb; }
-  input:focus, select:focus{ box-shadow:0 0 0 3px rgba(124,58,237,.35); }
-  button{ background:#151a22; border-color:#2a2f39; color:#e5e7eb; }
+  body{ background: linear-gradient(#0f1115,#0b0e14); color:#e5e7eb; }
+  .card{ background: rgba(22,24,29,.7); border-color:#2a2f39; }
+  input, select{ background:#111318; border-color:#2a2f39; color:#e5e7eb; }
+  input:focus, select:focus{ box-shadow:0 0 0 3px rgba(124,58,237,.28); }
+  button{ background:#171a21; border-color:#2a2f39; color:#e5e7eb; }
+  #save{ background:var(--accent); border-color:var(--accent); color:#fff; }
   table th, .muted{ color:#9aa3b2; }
-  tbody tr:hover{ background:#121826; }
   .gsi-material-button{ background:#131314; border-color:#8e918f; color:#e3e3e3; }
 }
 
@@ -150,15 +132,12 @@ tbody tr:hover{ background:#fafafa; }
     <hr style="margin:16px 0;border:none;border-top:1px solid #eee">
 
 
-<div class="hr"><span>Or continue with</span></div>
-
-<!-- If you already have Google’s generated button markup, just paste it here -->
-<button id="google-login" type="button" class="gsi-material-button" aria-label="Sign in with Google">
+    <button id="google-login" type="button" class="gsi-material-button" aria-label="Sign in with Google" title="Sign in with Google">
   <div class="gsi-material-button-state"></div>
   <div class="gsi-material-button-content-wrapper">
     <div class="gsi-material-button-icon">
-      <!-- official G svg -->
-      <svg viewBox="0 0 48 48" aria-hidden="true" style="display:block">
+      <!-- (keep the exact SVG you pasted) -->
+      <svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" xmlns:xlink="http://www.w3.org/1999/xlink" style="display:block">
         <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
         <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
         <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
@@ -167,11 +146,9 @@ tbody tr:hover{ background:#fafafa; }
       </svg>
     </div>
     <span class="gsi-material-button-contents">Sign in with Google</span>
-    <span class="gsi-material-button-contents-hidden">Sign in with Google</span>
   </div>
 </button>
 
-    
 
     <p class="muted" id="oauth-msg"></p>
 
