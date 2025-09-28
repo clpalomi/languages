@@ -5,149 +5,277 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Language study log • App</title>
   <style>
-    /* ===== Lovable-inspired skin (drop-in) ===== */
-:root{
-  --accent:#7c3aed;         /* tweak for your brand */
-  --radius:14px;
-}
-*,*::before,*::after{ box-sizing:border-box; }
+    /* ===== Design tokens aligned with your React UI ===== */
+    :root{
+      --primary: #6d28d9;         /* learning-primary */
+      --primary-600:#7c3aed;      /* accent for hover/headers */
+      --primary-400:#a78bfa;
+      --accent:#22c55e;           /* learning-accent (green-ish) */
+      --bg-start:#f6f7ff;
+      --bg-end:#f9fafb;
+      --card-bg: rgba(255,255,255,.9);
+      --radius: 16px;
+      --shadow-md: 0 10px 30px rgba(17,24,39,.08);
+      --muted:#6b7280;
+      --border:#e5e7eb;
+      --danger:#ef4444;
+    }
+    @media (prefers-color-scheme: dark){
+      :root{
+        --bg-start:#0f1117;
+        --bg-end:#0b0e14;
+        --card-bg: rgba(22,24,29,.7);
+        --border:#2a2f39;
+        --muted:#9aa3b2;
+        --shadow-md: 0 12px 40px rgba(0,0,0,.35);
+      }
+    }
 
-body{
-  margin:0; padding:32px;
-  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-  color:#111827;
-  /* soft gradient background */
-  background:
-    radial-gradient(1200px 600px at -10% -10%, #eef2ff 0%, transparent 60%),
-    radial-gradient(1000px 500px at 110% -20%, #fce7f3 0%, transparent 60%),
-    linear-gradient(#fafafa, #f7f7f9);
-}
+    /* Reset & page bg */
+    *,*::before,*::after{ box-sizing:border-box; }
+    body{
+      margin:0; padding:24px; min-height:100svh;
+      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      color:#111827;
+      background:
+        radial-gradient(1000px 600px at -10% -10%, #eef2ff 0%, transparent 60%),
+        radial-gradient(900px 500px at 110% -20%, #fce7f3 0%, transparent 60%),
+        linear-gradient(var(--bg-start), var(--bg-end));
+      display:grid; place-items:start center;
+    }
+    @media (prefers-color-scheme: dark){ body{ color:#e5e7eb; } }
 
-/* Card */
-.card{
-  max-width:720px; margin:0 auto;
-  padding:24px;
-  border-radius:var(--radius);
-  border:1px solid #e5e7eb;
-  background:rgba(255,255,255,.85);
-  backdrop-filter: blur(8px);
-  box-shadow:0 10px 30px rgba(17,24,39,.06);
-}
+    /* Card container */
+    .card{
+      width:100%; max-width: 960px; border:1px solid var(--border);
+      background: var(--card-bg); backdrop-filter: blur(8px);
+      border-radius: var(--radius); box-shadow: var(--shadow-md);
+      overflow:hidden;
+    }
 
-h1{ margin:0 0 8px; font-size:28px; font-weight:700; letter-spacing:-.02em; }
-.muted{ color:#6b7280; font-size:12px; }
+    /* Header: gradient bar with sign out */
+    .card-header{
+      padding:20px 24px;
+      background: linear-gradient(90deg, var(--primary-600), var(--primary));
+      color:#fff;
+    }
+    .header-row{
+      display:flex; align-items:center; justify-content:space-between; gap:12px;
+    }
+    .title{
+      display:flex; align-items:center; gap:10px;
+      font-size:20px; font-weight:800; letter-spacing:-.01em;
+    }
+    .title .icon{ width:22px; height:22px }
+    .header-sub{ margin:8px 0 0; font-size:13px; color:#ffffffde; }
 
-/* Form controls */
-label{ display:block; font-size:12px; font-weight:600; color:#6b7280; margin:12px 0 6px; }
+    /* Outline signout button (white outline on gradient) */
+    #signout{
+      height:36px; padding:0 12px; border-radius:12px; border:1px solid rgba(255,255,255,.28);
+      background: rgba(255,255,255,.1); color:#fff; font-weight:600; cursor:pointer;
+      display:inline-flex; align-items:center; gap:8px;
+      transition: background .2s, transform .02s;
+    }
+    #signout:hover{ background: rgba(255,255,255,.18); }
+    #signout:active{ transform: translateY(1px); }
 
-input, select{
-  width:100%; height:44px; padding:10px 12px;
-  border-radius:10px; border:1px solid #e5e7eb; background:#fff; outline:0;
-  transition: box-shadow .2s, border-color .2s, background .2s;
-}
-input:focus, select:focus{
-  border-color:var(--accent);
-  box-shadow:0 0 0 3px rgba(124,58,237,.2);
-}
+    /* Body */
+    .card-content{ padding: 20px 24px 24px; }
 
-/* Buttons (base) */
-button{
-  height:44px; padding:0 16px;
-  border-radius:10px; border:1px solid #e5e7eb; background:#fff; color:#111827;
-  font-weight:600; cursor:pointer;
-  transition: background .2s, border-color .2s, box-shadow .2s, transform .02s;
-}
-button:hover{ background:#f9fafb; }
-button:active{ transform: translateY(1px); }
+    /* Info line */
+    .muted{ color:var(--muted); font-size:12px; }
+    .info{ margin:6px 0 18px; }
 
-/* Primary action */
-#save{
-  width:100%;
-  background:var(--accent); border-color:var(--accent); color:#fff;
-}
-#save:hover{ background:#6d28d9; border-color:#6d28d9; }
-#signout{ border-color:#e5e7eb; background:#fff; }
-#signout:hover{ background:#f9fafb; }
+    /* Grid form (minutes / language) */
+    .grid{ display:grid; grid-template-columns: 1fr 1fr; gap:16px; }
+    @media (max-width:720px){ .grid{ grid-template-columns:1fr; } }
 
-/* Layout */
-.row{ display:grid; grid-template-columns:1fr 1fr; gap:12px; align-items:end; }
-@media (max-width:640px){ .row{ grid-template-columns:1fr; } }
-#status{ margin-left:12px; }
+    .field label{
+      display:block; font-size:12px; font-weight:600; color:var(--muted); margin:0 0 6px;
+    }
+    input[type="number"], input[type="text"]{
+      width:100%; height:44px; padding:10px 12px; border-radius:12px;
+      border:1px solid var(--border); background:#fff; color:#111827;
+      transition: box-shadow .2s, border-color .2s, background .2s;
+      outline:0;
+    }
+    input::placeholder{ color:#9aa3af; }
+    input:focus{
+      border-color: var(--primary-600);
+      box-shadow:0 0 0 3px color-mix(in srgb, var(--primary-600) 25%, transparent);
+    }
+    @media (prefers-color-scheme: dark){
+      input[type="number"], input[type="text"]{ background:#111318; color:#e5e7eb; }
+    }
 
-/* Table */
-table{ width:100%; border-collapse:collapse; margin-top:16px; }
-th,td{ padding:10px; border-bottom:1px solid #f3f4f6; }
-th{ font-size:12px; color:#6b7280; font-weight:600; }
-.right{ text-align:right; }
+    /* Save row */
+    .actions{ margin-top:12px; display:flex; align-items:center; gap:12px; }
+    #status{ font-size:12px; color:var(--muted); min-height: 18px; }
 
-/* Hide/show helper */
-.hidden{ display:none; }
+    /* Buttons */
+    button{ font-weight:600; cursor:pointer; }
+    #save{
+      height:44px; padding:0 16px; width:100%;
+      border-radius:12px; border:0; color:#fff;
+      background: linear-gradient(180deg, var(--primary-600), var(--primary));
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.12), 0 6px 20px rgba(124,58,237,.28);
+      display:inline-flex; align-items:center; justify-content:center; gap:10px;
+      transition: filter .15s, transform .02s;
+    }
+    #save:hover{ filter: brightness(1.05); }
+    #save:active{ transform: translateY(1px); }
 
-/* Google button — use your generated markup with class gsi-material-button */
-.gsi-material-button{
-  width:auto; height:40px; padding:0 12px;
-  border:1px solid #747775; border-radius:4px; background:#fff; color:#1f1f1f;
-  font:500 14px/1 Roboto, system-ui, -apple-system, Segoe UI, Helvetica, Arial, sans-serif;
-  letter-spacing:.25px;
-  display:inline-flex; align-items:center; justify-content:center; gap:10px;
-}
-.gsi-material-button .gsi-material-button-icon{ width:18px; height:18px; }
-.gsi-material-button-content-wrapper{ display:flex; align-items:center; gap:10px; height:100%; }
+    /* Inline spinner (shown by script when saving) */
+    .spinner{
+      width:16px; height:16px; border-radius:999px; border:2px solid rgba(255,255,255,.6);
+      border-top-color:#fff; animation: spin .8s linear infinite;
+    }
+    @keyframes spin{ to{ transform: rotate(360deg); } }
 
-/* Optional: center the Google button in your form */
-#google-login{ margin:8px auto 0; }
+    /* Section title */
+    .section-title{
+      margin:22px 0 8px; font-size:18px; font-weight:700; letter-spacing:-.01em;
+      display:flex; align-items:center; gap:8px;
+    }
+    .pill{
+      padding:.2rem .5rem; border-radius:999px;
+      background: color-mix(in srgb, var(--primary-400) 18%, transparent);
+      color: var(--primary-600); font-weight:700; font-size:14px;
+    }
 
-/* Dark mode polish */
-@media (prefers-color-scheme: dark){
-  body{ background: linear-gradient(#0f1115,#0b0e14); color:#e5e7eb; }
-  .card{ background: rgba(22,24,29,.7); border-color:#2a2f39; }
-  input, select{ background:#111318; border-color:#2a2f39; color:#e5e7eb; }
-  input:focus, select:focus{ box-shadow:0 0 0 3px rgba(124,58,237,.28); }
-  button{ background:#171a21; border-color:#2a2f39; color:#e5e7eb; }
-  #save{ background:var(--accent); border-color:var(--accent); color:#fff; }
-  table th, .muted{ color:#9aa3b2; }
-  .gsi-material-button{ background:#131314; border-color:#8e918f; color:#e3e3e3; }
-}
+    /* Table (glass card) */
+    .table-wrap{
+      border:1px solid var(--border); border-radius:12px; overflow:hidden; background:rgba(255,255,255,.6);
+    }
+    table{ width:100%; border-collapse:collapse; }
+    thead{ background: color-mix(in srgb, #000 6%, transparent); }
+    th,td{ padding:12px 14px; border-bottom:1px solid var(--border); }
+    th{ font-size:12px; color:var(--muted); text-align:left; font-weight:700; }
+    td{ font-size:14px; }
+    td.right{ text-align:right; font-weight:700; color: var(--primary-600); }
+    tbody tr:hover{ background: color-mix(in srgb, #000 4%, transparent); }
 
+    /* Empty state */
+    .empty{ padding:28px 14px; text-align:center; color:var(--muted); }
 
-    
+    /* Dark mode tweaks */
+    @media (prefers-color-scheme: dark){
+      .table-wrap{ background: rgba(17,19,24,.55); }
+      thead{ background: rgba(255,255,255,.04); }
+      tbody tr:hover{ background: rgba(255,255,255,.04); }
+      td.right{ color: var(--primary-400); }
+    }
   </style>
   <script type="module" src="./js/app-page.js"></script>
 </head>
 <body>
   <div class="card">
-    <div class="row">
-      <h1>Language studying</h1>
-      <div style="text-align:right"><button id="signout" type="button">Sign out</button></div>
-    </div>
-    <p class="muted">Date is auto-set to today. Each user has their own rows via <code>user_id</code>.</p>
-
-    <div class="row">
-      <div>
-        <label for="minutes">Minutes</label>
-        <input id="minutes" type="number" min="0" step="1" placeholder="e.g., 30" />
+    <!-- Header -->
+    <div class="card-header">
+      <div class="header-row">
+        <div class="title">
+          <!-- Book icon -->
+          <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M4 6.5A2.5 2.5 0 0 1 6.5 4H20v14.25c0 .966-.784 1.75-1.75 1.75H6.5A2.5 2.5 0 0 0 4 22V6.5Z" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M4 6.5A2.5 2.5 0 0 1 6.5 4H20M4 6.5V22" stroke="currentColor" stroke-width="1.5"/>
+          </svg>
+          Language Study Log
+        </div>
+        <button id="signout" type="button" title="Sign out">
+          <!-- logout icon -->
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M15 17l5-5-5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M20 12H9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M12 19a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+          Sign out
+        </button>
       </div>
-      <div>
-        <label for="language">Language</label>
-        <input id="language" type="text" list="langs" placeholder="e.g., German" />
-        <datalist id="langs">
-          <option>Polish</option><option>Russian</option><option>Georgian</option>
-          <option>Japanese</option><option>French</option><option>Italian</option>
-          <option>Spanish</option>
-        </datalist>
+      <p class="header-sub">Track your daily language learning progress</p>
+    </div>
+
+    <!-- Content -->
+    <div class="card-content">
+      <p class="info muted">Date is auto-set to today. Each user has their own rows via <code>user_id</code>.</p>
+
+      <!-- Inputs -->
+      <div class="grid">
+        <div class="field">
+          <label for="minutes">Study Minutes</label>
+          <input id="minutes" type="number" min="0" step="1" placeholder="e.g., 30" />
+        </div>
+        <div class="field">
+          <label for="language">Language</label>
+          <input id="language" type="text" list="langs" placeholder="e.g., German" />
+          <datalist id="langs">
+            <option>Polish</option><option>Russian</option><option>Georgian</option>
+            <option>Japanese</option><option>French</option><option>Italian</option>
+            <option>Spanish</option>
+          </datalist>
+        </div>
+      </div>
+
+      <!-- Save -->
+      <div class="actions">
+        <button id="save" type="button">
+          <span class="btn-label">Save Study Session</span>
+        </button>
+        <span id="status" class="muted" aria-live="polite"></span>
+      </div>
+
+      <!-- Today section -->
+      <h3 class="section-title">
+        Today: <span id="today" class="pill">—</span>
+      </h3>
+
+      <!-- Table -->
+      <div class="table-wrap" role="region" aria-live="polite" aria-label="Today entries">
+        <table>
+          <thead>
+            <tr><th>Date</th><th>Language</th><th class="right">Minutes</th></tr>
+          </thead>
+          <tbody id="rows">
+            <tr><td colspan="3" class="empty">Loading…</td></tr>
+          </tbody>
+        </table>
       </div>
     </div>
-
-    <div style="margin-top:12px">
-      <button id="save" type="button">Save</button>
-      <span id="status" class="muted"></span>
-    </div>
-
-    <h3 style="margin-top:24px">Today: <span id="today"></span></h3>
-    <table>
-      <thead><tr><th>Date</th><th>Language</th><th class="right">Minutes</th></tr></thead>
-      <tbody id="rows"></tbody>
-    </table>
   </div>
+
+  <!-- Tiny UX enhancer to mirror "Saving..." like your React button -->
+  <script>
+    const saveBtn = document.getElementById('save');
+    const statusEl = document.getElementById('status');
+
+    // Toggle spinner while your app-page.js runs the actual save
+    function showSavingUI(isSaving){
+      if(!saveBtn) return;
+      saveBtn.disabled = !!isSaving;
+      if(isSaving){
+        if(!saveBtn.querySelector('.spinner')){
+          const sp = document.createElement('div'); sp.className = 'spinner'; sp.setAttribute('aria-hidden','true');
+          saveBtn.insertBefore(sp, saveBtn.firstChild);
+        }
+        statusEl && (statusEl.textContent = 'Saving...');
+      }else{
+        const sp = saveBtn.querySelector('.spinner'); if(sp) sp.remove();
+      }
+    }
+
+    // Optional: listen to clicks and set a short busy state.
+    saveBtn?.addEventListener('click', () => {
+      showSavingUI(true);
+      // Your ./js/app-page.js should update #status on success/error and can call:
+      //   window.__doneSaving && window.__doneSaving();
+      // We also add a safety timeout to re-enable the UI if nothing calls back.
+      window.__savingTimeout && clearTimeout(window.__savingTimeout);
+      window.__savingTimeout = setTimeout(() => showSavingUI(false), 4000);
+    });
+
+    // Allow your app-page.js to end the saving state explicitly
+    window.__doneSaving = () => {
+      showSavingUI(false);
+    };
+  </script>
 </body>
 </html>
