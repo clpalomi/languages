@@ -8,9 +8,9 @@
     /* ===== Design tokens aligned with your React UI ===== */
     :root{
       --primary: #6d28d9;         /* learning-primary */
-      --primary-600:#7c3aed;      /* accent for hover/headers */
+      --primary-600:#7c3aed;
       --primary-400:#a78bfa;
-      --accent:#22c55e;           /* learning-accent (green-ish) */
+      --accent:#22c55e;           /* learning-accent */
       --bg-start:#f6f7ff;
       --bg-end:#f9fafb;
       --card-bg: rgba(255,255,255,.9);
@@ -18,7 +18,7 @@
       --shadow-md: 0 10px 30px rgba(17,24,39,.08);
       --muted:#6b7280;
       --border:#e5e7eb;
-      --danger:#ef4444;
+      --badge:#eef2ff;
     }
     @media (prefers-color-scheme: dark){
       :root{
@@ -28,6 +28,7 @@
         --border:#2a2f39;
         --muted:#9aa3b2;
         --shadow-md: 0 12px 40px rgba(0,0,0,.35);
+        --badge:#151928;
       }
     }
 
@@ -41,19 +42,27 @@
         radial-gradient(1000px 600px at -10% -10%, #eef2ff 0%, transparent 60%),
         radial-gradient(900px 500px at 110% -20%, #fce7f3 0%, transparent 60%),
         linear-gradient(var(--bg-start), var(--bg-end));
-      display:grid; place-items:start center;
     }
     @media (prefers-color-scheme: dark){ body{ color:#e5e7eb; } }
 
-    /* Card container */
+    /* Layout: two cards side-by-side (stack on mobile) */
+    .page{
+      max-width: 1120px; margin: 0 auto; display:grid; gap:20px;
+      grid-template-columns: 1fr; align-items:start;
+    }
+    @media (min-width: 980px){
+      .page{ grid-template-columns: 1.3fr .9fr; }
+    }
+
+    /* Generic card container */
     .card{
-      width:100%; max-width: 960px; border:1px solid var(--border);
+      width:100%; border:1px solid var(--border);
       background: var(--card-bg); backdrop-filter: blur(8px);
       border-radius: var(--radius); box-shadow: var(--shadow-md);
       overflow:hidden;
     }
 
-    /* Header: gradient bar with sign out */
+    /* ======= LEFT: STUDY LOG (existing) ======= */
     .card-header{
       padding:20px 24px;
       background: linear-gradient(90deg, var(--primary-600), var(--primary));
@@ -68,8 +77,6 @@
     }
     .title .icon{ width:22px; height:22px }
     .header-sub{ margin:8px 0 0; font-size:13px; color:#ffffffde; }
-
-    /* Outline signout button (white outline on gradient) */
     #signout{
       height:36px; padding:0 12px; border-radius:12px; border:1px solid rgba(255,255,255,.28);
       background: rgba(255,255,255,.1); color:#fff; font-weight:600; cursor:pointer;
@@ -79,14 +86,10 @@
     #signout:hover{ background: rgba(255,255,255,.18); }
     #signout:active{ transform: translateY(1px); }
 
-    /* Body */
     .card-content{ padding: 20px 24px 24px; }
-
-    /* Info line */
     .muted{ color:var(--muted); font-size:12px; }
     .info{ margin:6px 0 18px; }
 
-    /* Grid form (minutes / language) */
     .grid{ display:grid; grid-template-columns: 1fr 1fr; gap:16px; }
     @media (max-width:720px){ .grid{ grid-template-columns:1fr; } }
 
@@ -108,12 +111,9 @@
       input[type="number"], input[type="text"]{ background:#111318; color:#e5e7eb; }
     }
 
-    /* Save row */
     .actions{ margin-top:12px; display:flex; align-items:center; gap:12px; }
     #status{ font-size:12px; color:var(--muted); min-height: 18px; }
 
-    /* Buttons */
-    button{ font-weight:600; cursor:pointer; }
     #save{
       height:44px; padding:0 16px; width:100%;
       border-radius:12px; border:0; color:#fff;
@@ -124,15 +124,12 @@
     }
     #save:hover{ filter: brightness(1.05); }
     #save:active{ transform: translateY(1px); }
-
-    /* Inline spinner (shown by script when saving) */
     .spinner{
       width:16px; height:16px; border-radius:999px; border:2px solid rgba(255,255,255,.6);
       border-top-color:#fff; animation: spin .8s linear infinite;
     }
     @keyframes spin{ to{ transform: rotate(360deg); } }
 
-    /* Section title */
     .section-title{
       margin:22px 0 8px; font-size:18px; font-weight:700; letter-spacing:-.01em;
       display:flex; align-items:center; gap:8px;
@@ -143,7 +140,6 @@
       color: var(--primary-600); font-weight:700; font-size:14px;
     }
 
-    /* Table (glass card) */
     .table-wrap{
       border:1px solid var(--border); border-radius:12px; overflow:hidden; background:rgba(255,255,255,.6);
     }
@@ -154,100 +150,242 @@
     td{ font-size:14px; }
     td.right{ text-align:right; font-weight:700; color: var(--primary-600); }
     tbody tr:hover{ background: color-mix(in srgb, #000 4%, transparent); }
-
-    /* Empty state */
     .empty{ padding:28px 14px; text-align:center; color:var(--muted); }
-
-    /* Dark mode tweaks */
     @media (prefers-color-scheme: dark){
       .table-wrap{ background: rgba(17,19,24,.55); }
       thead{ background: rgba(255,255,255,.04); }
       tbody tr:hover{ background: rgba(255,255,255,.04); }
       td.right{ color: var(--primary-400); }
     }
+
+    /* ======= RIGHT: PRIVATE SESSION BOX (from PrivateSessionCard.tsx) ======= */
+    .ps-header{
+      padding:20px 24px;
+      background: linear-gradient(90deg, var(--primary-400), var(--primary-600));
+      color:#fff;
+    }
+    .ps-title{ display:flex; align-items:center; gap:10px; font-size:18px; font-weight:800; }
+    .ps-sub{ margin-top:6px; font-size:13px; color:#ffffffde; }
+    .ps-content{ padding: 20px 24px 24px; display:grid; gap:16px; }
+
+    .ps-status{
+      display:flex; align-items:center; justify-content:space-between; gap:12px;
+      padding:12px; border:1px solid color-mix(in srgb, var(--accent) 28%, transparent);
+      background: color-mix(in srgb, var(--accent) 8%, transparent);
+      border-radius:12px;
+    }
+    .dot{ width:10px; height:10px; border-radius:999px; background: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 28%, transparent); }
+    .ps-badge{
+      padding:4px 10px; border-radius:999px; font-size:12px; font-weight:700;
+      background: var(--badge); color: var(--primary-600); border:1px solid color-mix(in srgb, var(--primary-600) 18%, transparent);
+    }
+
+    .ps-group h4{ margin:0 0 6px; font-size:12px; font-weight:700; color:var(--muted); letter-spacing:.08em; text-transform:uppercase; }
+    .ps-feature{
+      display:flex; align-items:flex-start; gap:10px; padding:10px;
+      border-radius:12px; transition: background .15s;
+    }
+    .ps-feature:hover{ background: color-mix(in srgb, #000 5%, transparent); }
+    .ps-feature .fi{ width:20px; height:20px; color: var(--primary-600); margin-top:2px; }
+    .ps-feature .ft{ font-size:14px; font-weight:600; }
+    .ps-feature .fd{ font-size:12px; color: var(--muted); }
+
+    .ps-stats{ display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+    .ps-stat{
+      text-align:center; padding:12px; border-radius:12px;
+      border:1px solid color-mix(in srgb, var(--primary-600) 18%, transparent);
+      background: color-mix(in srgb, var(--primary-400) 6%, transparent);
+    }
+    .ps-stat .num{ font-size:22px; font-weight:800; color: var(--primary-600); }
+    .ps-stat .lbl{ font-size:12px; color: var(--muted); }
+    @media (prefers-color-scheme: dark){
+      .ps-feature:hover{ background: rgba(255,255,255,.04); }
+    }
+
+    .ps-start{
+      height:44px; padding:0 16px; width:100%;
+      border-radius:12px; border:0; color:#fff;
+      background: linear-gradient(180deg, var(--primary-600), var(--primary));
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.12), 0 6px 20px rgba(124,58,237,.28);
+      display:inline-flex; align-items:center; justify-content:center; gap:10px;
+      font-weight:700; cursor:pointer; transition: filter .15s, transform .02s;
+    }
+    .ps-start:hover{ filter: brightness(1.05); }
+    .ps-start:active{ transform: translateY(1px); }
+    .ps-note{ font-size:12px; color:var(--muted); text-align:center; }
+
+    /* Utility icons */
+    .icon-16{ width:16px; height:16px }
   </style>
   <script type="module" src="./js/app-page.js"></script>
 </head>
 <body>
-  <div class="card">
-    <!-- Header -->
-    <div class="card-header">
-      <div class="header-row">
-        <div class="title">
-          <!-- Book icon -->
-          <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M4 6.5A2.5 2.5 0 0 1 6.5 4H20v14.25c0 .966-.784 1.75-1.75 1.75H6.5A2.5 2.5 0 0 0 4 22V6.5Z" stroke="currentColor" stroke-width="1.5"/>
-            <path d="M4 6.5A2.5 2.5 0 0 1 6.5 4H20M4 6.5V22" stroke="currentColor" stroke-width="1.5"/>
-          </svg>
-          Language Study Log
+  <div class="page">
+    <!-- LEFT: STUDY LOG (keeps original IDs) -->
+    <div class="card" id="study-log-card">
+      <div class="card-header">
+        <div class="header-row">
+          <div class="title">
+            <!-- Book icon -->
+            <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M4 6.5A2.5 2.5 0 0 1 6.5 4H20v14.25c0 .966-.784 1.75-1.75 1.75H6.5A2.5 2.5 0 0 0 4 22V6.5Z" stroke="currentColor" stroke-width="1.5"/>
+              <path d="M4 6.5A2.5 2.5 0 0 1 6.5 4H20M4 6.5V22" stroke="currentColor" stroke-width="1.5"/>
+            </svg>
+            Language Study Log
+          </div>
+          <button id="signout" type="button" title="Sign out">
+            <svg class="icon-16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M15 17l5-5-5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M20 12H9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M12 19a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+            Sign out
+          </button>
         </div>
-        <button id="signout" type="button" title="Sign out">
-          <!-- logout icon -->
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M15 17l5-5-5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M20 12H9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M12 19a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-          </svg>
-          Sign out
-        </button>
+        <p class="header-sub">Track your daily language learning progress</p>
       </div>
-      <p class="header-sub">Track your daily language learning progress</p>
+
+      <div class="card-content">
+        <p class="info muted">Date is auto-set to today. Each user has their own rows via <code>user_id</code>.</p>
+
+        <div class="grid">
+          <div class="field">
+            <label for="minutes">Study Minutes</label>
+            <input id="minutes" type="number" min="0" step="1" placeholder="e.g., 30" />
+          </div>
+          <div class="field">
+            <label for="language">Language</label>
+            <input id="language" type="text" list="langs" placeholder="e.g., German" />
+            <datalist id="langs">
+              <option>Polish</option><option>Russian</option><option>Georgian</option>
+              <option>Japanese</option><option>French</option><option>Italian</option>
+              <option>Spanish</option>
+            </datalist>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button id="save" type="button"><span class="btn-label">Save Study Session</span></button>
+          <span id="status" class="muted" aria-live="polite"></span>
+        </div>
+
+        <h3 class="section-title">
+          Today: <span id="today" class="pill">—</span>
+        </h3>
+
+        <div class="table-wrap" role="region" aria-live="polite" aria-label="Today entries">
+          <table>
+            <thead>
+              <tr><th>Date</th><th>Language</th><th class="right">Minutes</th></tr>
+            </thead>
+            <tbody id="rows">
+              <tr><td colspan="3" class="empty">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
 
-    <!-- Content -->
-    <div class="card-content">
-      <p class="info muted">Date is auto-set to today. Each user has their own rows via <code>user_id</code>.</p>
-
-      <!-- Inputs -->
-      <div class="grid">
-        <div class="field">
-          <label for="minutes">Study Minutes</label>
-          <input id="minutes" type="number" min="0" step="1" placeholder="e.g., 30" />
+    <!-- RIGHT: PRIVATE SESSION BOX (CTA → session.html) -->
+    <aside class="card" id="private-session-card" aria-labelledby="ps-heading">
+      <div class="ps-header">
+        <div class="ps-title" id="ps-heading">
+          <!-- Users icon -->
+          <svg class="icon-16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M16 11a4 4 0 1 0-8 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            <path d="M20 21a6 6 0 0 0-16 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            <circle cx="12" cy="7" r="3" stroke="currentColor" stroke-width="1.5"/>
+          </svg>
+          Private Study Session
         </div>
-        <div class="field">
-          <label for="language">Language</label>
-          <input id="language" type="text" list="langs" placeholder="e.g., German" />
-          <datalist id="langs">
-            <option>Polish</option><option>Russian</option><option>Georgian</option>
-            <option>Japanese</option><option>French</option><option>Italian</option>
-            <option>Spanish</option>
-          </datalist>
+        <p class="ps-sub">Start a focused, private learning session tailored just for you.</p>
+      </div>
+
+      <div class="ps-content">
+        <!-- Status -->
+        <div class="ps-status">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div class="dot" aria-hidden="true"></div>
+            <span class="ft">Ready to start</span>
+          </div>
+          <span class="ps-badge">Available</span>
+        </div>
+
+        <!-- Features -->
+        <div class="ps-group">
+          <h4>Session Features</h4>
+
+          <div class="ps-feature">
+            <!-- Lock icon -->
+            <svg class="fi" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <rect x="4" y="11" width="16" height="9" rx="2" stroke="currentColor" stroke-width="1.5"/>
+              <path d="M8 11V8a4 4 0 0 1 8 0v3" stroke="currentColor" stroke-width="1.5"/>
+            </svg>
+            <div>
+              <div class="ft">Private & Secure</div>
+              <div class="fd">Your session is completely private</div>
+            </div>
+          </div>
+
+          <div class="ps-feature">
+            <!-- Timer icon -->
+            <svg class="fi" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <circle cx="12" cy="13" r="7" stroke="currentColor" stroke-width="1.5"/>
+              <path d="M9 3h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              <path d="M12 13l3-2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+            <div>
+              <div class="ft">Focused Practice</div>
+              <div class="fd">Distraction-free learning environment</div>
+            </div>
+          </div>
+
+          <div class="ps-feature">
+            <!-- Target icon -->
+            <svg class="fi" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="1.5"/>
+              <circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="1.5"/>
+              <circle cx="12" cy="12" r="1.2" fill="currentColor"/>
+            </svg>
+            <div>
+              <div class="ft">Personalized</div>
+              <div class="fd">Tailored to your learning goals</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick stats -->
+        <div class="ps-stats">
+          <div class="ps-stat">
+            <div class="num" id="ps-sessions-today">0</div>
+            <div class="lbl">Sessions Today</div>
+          </div>
+          <div class="ps-stat">
+            <div class="num" id="ps-total-minutes">0</div>
+            <div class="lbl">Total Minutes</div>
+          </div>
+        </div>
+
+        <!-- Start button -->
+        <div>
+          <button id="ps-start" class="ps-start" type="button">
+            <!-- Play icon -->
+            <svg class="icon-16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="margin-right:2px">
+              <path d="M8 5v14l11-7-11-7z"/>
+            </svg>
+            Start Private Session
+          </button>
+          <p class="ps-note">This will open your personalized study environment</p>
         </div>
       </div>
-
-      <!-- Save -->
-      <div class="actions">
-        <button id="save" type="button">
-          <span class="btn-label">Save Study Session</span>
-        </button>
-        <span id="status" class="muted" aria-live="polite"></span>
-      </div>
-
-      <!-- Today section -->
-      <h3 class="section-title">
-        Today: <span id="today" class="pill">—</span>
-      </h3>
-
-      <!-- Table -->
-      <div class="table-wrap" role="region" aria-live="polite" aria-label="Today entries">
-        <table>
-          <thead>
-            <tr><th>Date</th><th>Language</th><th class="right">Minutes</th></tr>
-          </thead>
-          <tbody id="rows">
-            <tr><td colspan="3" class="empty">Loading…</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
+    </aside>
   </div>
 
-  <!-- Tiny UX enhancer to mirror "Saving..." like your React button -->
+  <!-- JS: keep left card loading UX; wire right button to session.html -->
   <script>
+    // Left card tiny UX enhancer (same as before)
     const saveBtn = document.getElementById('save');
     const statusEl = document.getElementById('status');
-
-    // Toggle spinner while your app-page.js runs the actual save
     function showSavingUI(isSaving){
       if(!saveBtn) return;
       saveBtn.disabled = !!isSaving;
@@ -261,21 +399,28 @@
         const sp = saveBtn.querySelector('.spinner'); if(sp) sp.remove();
       }
     }
-
-    // Optional: listen to clicks and set a short busy state.
     saveBtn?.addEventListener('click', () => {
       showSavingUI(true);
-      // Your ./js/app-page.js should update #status on success/error and can call:
-      //   window.__doneSaving && window.__doneSaving();
-      // We also add a safety timeout to re-enable the UI if nothing calls back.
       window.__savingTimeout && clearTimeout(window.__savingTimeout);
       window.__savingTimeout = setTimeout(() => showSavingUI(false), 4000);
     });
+    window.__doneSaving = () => { showSavingUI(false); };
 
-    // Allow your app-page.js to end the saving state explicitly
-    window.__doneSaving = () => {
-      showSavingUI(false);
-    };
+    // Right card: navigate to session.html (you'll build it)
+    const startBtn = document.getElementById('ps-start');
+    startBtn?.addEventListener('click', () => {
+      // Simple optimistic feedback
+      startBtn.disabled = true;
+      startBtn.style.filter = 'brightness(1.05)';
+      setTimeout(() => { window.location.href = 'session.html'; }, 250);
+    });
+
+    // Optional: if you later compute these stats, set innerText:
+    // document.getElementById('ps-sessions-today').innerText = String(n);
+    // document.getElementById('ps-total-minutes').innerText = String(m);
   </script>
+
+  <!-- Keep your app logic -->
+  <script type="module" src="./js/app-page.js"></script>
 </body>
 </html>
