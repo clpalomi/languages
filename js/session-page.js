@@ -6,7 +6,7 @@ import { supabase } from "./client.js"; // ← use your existing client module
   const { data: { session } } = await supabase.auth.getSession();
   if (!session?.user) {
     const url = new URL(location.href);
-    url.pathname = '/login';
+    url.pathname = 'https://clpalomi.github.io/languages/index.html';
     url.search = `?next=${encodeURIComponent(location.pathname)}`;
     window.location.replace(url.toString());
     return;
