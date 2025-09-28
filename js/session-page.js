@@ -62,6 +62,6 @@ async function loadLesson(label, path) {
 // 4) Hook Lesson 1
 document.getElementById('lesson-1')?.addEventListener('click', (e) => {
   const btn  = e.currentTarget;
-  const path = btn.getAttribute('data-path') || '/lessons/lesson1_polish/content.html';
+  const path = btn.getAttribute('data-path') || './lessons/lesson1_polish/content.html';
   loadLesson('Lesson 1 — Polish', path);
 });
