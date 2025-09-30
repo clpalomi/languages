@@ -1,115 +1,99 @@
-// /js/components/pomodoro.js
-import { supabase } from "../client.js";
+// js/components/pomodoro.js
+// Minimal, framework-free Pomodoro with callbacks for persistence.
 
-/**
- * Pomodoro component:
- * - mount(el, { maxMinutes, onTick(seconds), onChunkSaved(seconds) })
- * - Saves elapsed seconds on pause/reset via saveChunk(userId, lessonKey, seconds)
- */
-export function mountPomodoro(el, opts = {}) {
-  const max = Math.max(1, Math.min(60, Number(opts.maxMinutes ?? 60)));
-  const elTime  = el.querySelector("#pomo-time");
-  const elMins  = el.querySelector("#pomo-mins");
-  const elStart = el.querySelector("#pomo-start");
-  const elPause = el.querySelector("#pomo-pause");
-  const elReset = el.querySelector("#pomo-reset");
-  const elStatus= el.querySelector("#pomo-status");
+export function setupPomodoro(rootEl, {
+  onStart  = () => {},
+  onPause  = () => {},
+  onTick   = () => {},
+  onReset  = () => {},
+  onFinish = () => {},
+  maxMinutes = 60
+} = {}) {
+  const timeEl     = rootEl.querySelector('#pomodoro-time');
+  const durInput   = rootEl.querySelector('#pomodoro-duration');
+  const startBtn   = rootEl.querySelector('#pomodoro-start');
+  const pauseBtn   = rootEl.querySelector('#pomodoro-pause');
+  const resetBtn   = rootEl.querySelector('#pomodoro-reset');
+  const statusEl   = rootEl.querySelector('#pomodoro-status');
 
-  let state = { target: (Number(elMins.value)||25)*60, remaining: 0, running:false, handle:null, startedAt:null, accum:0, user:null, lessonKey:null };
+  let totalSec = Math.min(parseInt(durInput.value || '25', 10), maxMinutes) * 60;
+  let remaining = totalSec;
+  let timer = null;
+  let running = false;
+  let accumulated = 0; // total studied seconds in this run
 
-  async function getUser(){
-    const { data: { session } } = await supabase.auth.getSession();
-    return session?.user ?? null;
+  function fmt(sec){
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
   }
-
-  function format(sec){
-    const m = Math.floor(sec/60).toString().padStart(2,'0');
-    const s = Math.floor(sec%60).toString().padStart(2,'0');
-    return `${m}:${s}`;
+  function render(){
+    timeEl.textContent = fmt(remaining);
   }
-
-  function update(){
-    elTime.textContent = format(state.running ? state.remaining : state.target);
-    if (opts.onTick) opts.onTick(state.running ? (state.target - state.remaining) : 0);
-  }
-
   function tick(){
-    state.remaining -= 1;
-    if (state.remaining <= 0){
-      pause(true);
-      elStatus.textContent = "Time’s up! Logged your study time.";
-    }
-    update();
-  }
-
-  async function saveChunk(seconds){
-    if (!state.user || !state.lessonKey || seconds <= 0) return;
-    try {
-      await supabase.from("session_study_time").insert({
-        user_id: state.user.id,
-        lesson_key: state.lessonKey,
-        seconds: Math.round(seconds),
-        started_at: state.startedAt ?? new Date().toISOString(),
-        ended_at: new Date().toISOString()
-      });
-      if (opts.onChunkSaved) opts.onChunkSaved(seconds);
-    } catch (e) {
-      console.error("Time save error:", e);
-      elStatus.textContent = "Couldn’t save time (offline?). Will retry on next save.";
+    if (remaining > 0) {
+      remaining -= 1;
+      accumulated += 1;
+      onTick(accumulated, remaining);
+      render();
+    } else {
+      stop();
+      status('Session finished ✓');
+      onFinish(accumulated);
     }
   }
-
   function start(){
-    if (state.running) return;
-    const mins = Math.max(1, Math.min(max, Number(elMins.value)||25));
-    state.target = mins*60;
-    state.remaining = state.remaining>0 && state.remaining<=state.target ? state.remaining : state.target;
-    state.running = true;
-    state.startedAt = new Date().toISOString();
-    elStatus.textContent = "Studying…";
-    state.handle = setInterval(tick, 1000);
-    update();
+    if (running) return;
+    running = true;
+    status('Running…');
+    timer = setInterval(tick, 1000);
+    onStart({ totalSec, remaining });
   }
-
-  async function pause(final=false){
-    if (!state.running) return;
-    clearInterval(state.handle); state.handle = null; state.running=false;
-    const studied = state.target - state.remaining;
-    state.accum += studied;
-    await saveChunk(studied);
-    // keep remaining (for resume) unless final
-    if (final) { state.remaining = 0; }
-    elStatus.textContent = final ? "Session finished." : "Paused.";
-    update();
+  function pause(){
+    if (!running) return;
+    running = false;
+    clearInterval(timer);
+    status('Paused');
+    onPause(accumulated, remaining);
   }
-
-  async function reset(){
-    await pause(true);
-    state.remaining = state.target;
-    state.accum = 0;
-    elStatus.textContent = "Reset.";
-    update();
+  function stop(){
+    running = false;
+    clearInterval(timer);
   }
-
-  // Public helpers
-  async function setLessonKey(k){
-    state.lessonKey = k;
-    if (!state.user) state.user = await getUser();
+  function reset(){
+    stop();
+    totalSec = Math.min(parseInt(durInput.value || '25', 10), maxMinutes) * 60;
+    remaining = totalSec;
+    accumulated = 0;
+    render();
+    status('Ready');
+    onReset();
   }
+  function status(msg){ statusEl.textContent = msg; }
 
-  // Wire UI
-  elMins.addEventListener("change", () => {
-    const v = Math.max(1, Math.min(max, Number(elMins.value)||25));
-    elMins.value = String(v);
-    state.target = v*60; state.remaining = state.target; update();
+  // Wiring
+  startBtn?.addEventListener('click', start);
+  pauseBtn?.addEventListener('click', pause);
+  resetBtn?.addEventListener('click', reset);
+  durInput?.addEventListener('change', () => {
+    const v = Math.min(Math.max(parseInt(durInput.value||'25',10),1), maxMinutes);
+    durInput.value = String(v);
+    if (!running) {
+      totalSec = v * 60; remaining = totalSec; accumulated = 0; render();
+      status('Duration set');
+    }
   });
-  elStart.addEventListener("click", start);
-  elPause.addEventListener("click", () => pause(false));
-  elReset.addEventListener("click", reset);
-  window.addEventListener("beforeunload", () => { if (state.running) pause(false); });
 
-  // init
-  (async () => { state.user = await getUser(); state.remaining = (Number(elMins.value)||25)*60; update(); })();
+  // Pause if tab goes hidden
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) pause();
+  });
 
-  return { setLessonKey, start, pause, reset };
+  // Init
+  render(); status('Ready');
+
+  return {
+    start, pause, reset,
+    getState: () => ({ running, remaining, totalSec, accumulated })
+  };
 }
