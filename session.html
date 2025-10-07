@@ -165,11 +165,27 @@
       inline-size:84px; min-height: var(--tap); padding:0 10px; border-radius:10px; border:1px solid var(--border);
       background:#fff; color:#111827; font-weight:700;
     }
+
+    /* Vanish the counter while running; reveal on hover/focus/peek */
+    .pomodoro .time {
+      transition: opacity .18s ease;
+    }
+    .pomodoro .time.vanish {
+      opacity: 0;
+    }
+    .pomodoro .time.vanish:hover,
+    .pomodoro .time.vanish:focus-visible,
+    .pomodoro .time.vanish.peek {
+      opacity: 1;
+    }
+
+    
     @media (prefers-color-scheme: dark){
       .btn{ background:#171a21; color:#e5e7eb; border-color:var(--border) }
       @media (hover:hover){ .btn:hover{ background:#1b2029 } }
       .pomodoro input[type="number"]{ background:#111318; color:#e5e7eb }
     }
+    
 
     /* Reader */
     .reader{
@@ -259,6 +275,8 @@
             </div>
 
             <div class="muted" id="pomodoro-status" aria-live="polite"></div>
+            <div class="muted" id="study-log"></div>
+
           </div>
         </section>
 
