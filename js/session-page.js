@@ -16,6 +16,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const resetBtn = document.querySelector('#pomodoro-reset');
   const statusEl = document.querySelector('#pomodoro-status');
 
+  const normalizeBase = (b) => (b.endsWith('/') ? b : b + '/');
+  const b = normalizeBase(base);
+  const [metaResp, contentResp] = await Promise.all([
+    fetch(b + 'meta.json',   { cache: 'no-cache' }),
+    fetch(b + 'content.html', { cache: 'no-cache' })
+  ]);
+
+
   // Optional: create a study log line if you want to show cumulative minutes.
   let logEl = document.querySelector('#study-log');
   if (!logEl) {
@@ -72,10 +80,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!base) return;
     try {
       readerMeta.textContent = 'Loading...';
+      const normalizeBase = (b) => (b.endsWith('/') ? b : b + '/');
+      const b = normalizeBase(base);
       const [metaResp, contentResp] = await Promise.all([
-        fetch(new URL('meta.json', base), { cache: 'no-cache' }),
-        fetch(new URL('content.html', base), { cache: 'no-cache' })
+        fetch(b + 'meta.json',   { cache: 'no-cache' }),
+        fetch(b + 'content.html', { cache: 'no-cache' })
       ]);
+
 
       if (!metaResp.ok) throw new Error(`meta.json ${metaResp.status}`);
       if (!contentResp.ok) throw new Error(`content.html ${contentResp.status}`);
@@ -101,10 +112,10 @@ document.addEventListener('DOMContentLoaded', () => {
   // Bind the sample lesson button
   if (lessonBtn) {
     lessonBtn.addEventListener('click', (e) => {
-      const base = e.currentTarget.getAttribute('data-base');
-      // NOTE: fetch() won’t work from file:// — run a local server (e.g., `npx serve` in your project root).
-      loadLessonFromBase(base);
+      const base = e.currentTarget.getAttribute('data-base') || 'lessons/pl/lesson1/';
+      loadLessonFromBase(base.endsWith('/') ? base : base + '/');
     });
+
   }
 
   // ====== Pomodoro logic (vanish timer while running)
