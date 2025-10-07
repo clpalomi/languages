@@ -1,30 +1,20 @@
 // ./js/session-page.js
-// Mobile-first session wiring: lesson loader + Pomodoro with vanish/hover reveal and study log.
-
 document.addEventListener('DOMContentLoaded', () => {
-  // ====== Elements
+  // ===== Grab elements
   const lessonBtn = document.querySelector('#lesson-1');
   const readerTitle = document.querySelector('#reader-heading') || document.querySelector('#reader-title');
-  const readerMeta = document.querySelector('#reader-meta');
-  const readerPage = document.querySelector('#reader-page');
+  const readerMeta  = document.querySelector('#reader-meta');
+  const readerPage  = document.querySelector('#reader-page');
 
   const pomodoroRoot = document.querySelector('#pomodoro');
-  const timeEl = document.querySelector('#pomodoro-time');
-  const durInput = document.querySelector('#pomodoro-duration');
-  const startBtn = document.querySelector('#pomodoro-start');
-  const pauseBtn = document.querySelector('#pomodoro-pause');
-  const resetBtn = document.querySelector('#pomodoro-reset');
-  const statusEl = document.querySelector('#pomodoro-status');
+  const timeEl  = document.querySelector('#pomodoro-time');
+  const durInput= document.querySelector('#pomodoro-duration');
+  const startBtn= document.querySelector('#pomodoro-start');
+  const pauseBtn= document.querySelector('#pomodoro-pause');
+  const resetBtn= document.querySelector('#pomodoro-reset');
+  const statusEl= document.querySelector('#pomodoro-status');
 
-  const normalizeBase = (b) => (b.endsWith('/') ? b : b + '/');
-  const b = normalizeBase(base);
-  const [metaResp, contentResp] = await Promise.all([
-    fetch(b + 'meta.json',   { cache: 'no-cache' }),
-    fetch(b + 'content.html', { cache: 'no-cache' })
-  ]);
-
-
-  // Optional: create a study log line if you want to show cumulative minutes.
+  // Inject a study log line if absent
   let logEl = document.querySelector('#study-log');
   if (!logEl) {
     logEl = document.createElement('div');
@@ -33,243 +23,172 @@ document.addEventListener('DOMContentLoaded', () => {
     statusEl?.insertAdjacentElement('afterend', logEl);
   }
 
-  // ====== Helpers
+  // ===== Helpers
   const fmt = (ms) => {
     const s = Math.max(0, Math.round(ms / 1000));
-    const m = Math.floor(s / 60).toString().padStart(2, '0');
-    const ss = (s % 60).toString().padStart(2, '0');
-    return `${m}:${ss}`;
+    return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
+  };
+  const updateStatus = (msg) => { if (statusEl) statusEl.textContent = msg ?? ''; };
+
+  const resolveBase = (base) => {
+    // Make absolute against the document, ensure trailing slash
+    const u = new URL(base || '.', document.baseURI);
+    if (!u.pathname.endsWith('/')) u.pathname += '/';
+    const href = u.href;
+    return href;
   };
 
-  const getTotalStudied = () => Number(localStorage.getItem('study_minutes_total') || '0');
-  const setTotalStudied = (m) => localStorage.setItem('study_minutes_total', String(m));
-  const addToTotalStudied = (m) => {
-    const total = getTotalStudied() + m;
-    setTotalStudied(total);
-    renderStudyLog();
-    // You can listen for this elsewhere in your app if needed.
-    document.dispatchEvent(new CustomEvent('study:sessionSaved', { detail: { minutes: m, total } }));
-  };
-  const renderStudyLog = () => {
-    const total = getTotalStudied();
-    if (logEl) logEl.textContent = total ? `Total studied: ${total} min` : '';
-  };
-  renderStudyLog();
+  // ===== Study minutes store
+  const getTotal = () => Number(localStorage.getItem('study_minutes_total') || '0');
+  const setTotal = (m) => localStorage.setItem('study_minutes_total', String(m));
+  const addMinutes = (m) => { setTotal(getTotal() + m); renderTotal(); };
+  const renderTotal = () => { const t = getTotal(); logEl.textContent = t ? `Total studied: ${t} min` : ''; };
+  renderTotal();
 
-  // Simple WebAudio beep (no external files)
-  const beep = (duration = 220, freq = 880, type = 'sine') => {
+  // ===== Beep
+  const beep = (dur=220, freq=880, type='triangle') => {
     try {
       const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = type;
-      osc.frequency.value = freq;
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      gain.gain.value = 0.06;
-      osc.start();
-      setTimeout(() => {
-        osc.stop();
-        ctx.close();
-      }, duration);
+      const o = ctx.createOscillator(); const g = ctx.createGain();
+      o.type = type; o.frequency.value = freq; o.connect(g); g.connect(ctx.destination);
+      g.gain.value = 0.06; o.start(); setTimeout(()=>{o.stop(); ctx.close();}, dur);
     } catch {}
   };
 
-  // ====== Lesson loading
+  // ===== Lesson loader (with explicit diagnostics)
   async function loadLessonFromBase(base) {
-    if (!base) return;
+    const abs = resolveBase(base);
+    const metaURL = abs + 'meta.json';
+    const htmlURL = abs + 'content.html';
+
+    updateStatus(`Loading lesson… (meta: ${metaURL}, content: ${htmlURL})`);
+    console.log('[Lesson loader] Trying:', { base, resolvedBase: abs, metaURL, htmlURL });
+
     try {
-      readerMeta.textContent = 'Loading...';
-      const normalizeBase = (b) => (b.endsWith('/') ? b : b + '/');
-      const b = normalizeBase(base);
-      const [metaResp, contentResp] = await Promise.all([
-        fetch(b + 'meta.json',   { cache: 'no-cache' }),
-        fetch(b + 'content.html', { cache: 'no-cache' })
+      const [metaResp, htmlResp] = await Promise.all([
+        fetch(metaURL, { cache: 'no-cache' }),
+        fetch(htmlURL, { cache: 'no-cache' })
       ]);
 
+      if (!metaResp.ok) {
+        updateStatus(`Failed meta.json (${metaResp.status}). Check path/filename.`);
+        console.error('meta.json fetch failed:', metaResp.status, metaResp.statusText);
+        return;
+      }
+      if (!htmlResp.ok) {
+        updateStatus(`Failed content.html (${htmlResp.status}). Check path/filename.`);
+        console.error('content.html fetch failed:', htmlResp.status, htmlResp.statusText);
+        return;
+      }
 
-      if (!metaResp.ok) throw new Error(`meta.json ${metaResp.status}`);
-      if (!contentResp.ok) throw new Error(`content.html ${contentResp.status}`);
+      let meta;
+      try {
+        meta = await metaResp.json();
+      } catch (e) {
+        updateStatus('meta.json could not be parsed (invalid JSON).');
+        console.error('JSON parse error for meta.json:', e);
+        return;
+      }
 
-      const meta = await metaResp.json();
-      const html = await contentResp.text();
+      const html = await htmlResp.text();
 
       if (readerTitle) readerTitle.textContent = meta?.title || 'Lesson';
       readerMeta.textContent = [meta?.level && `Level ${meta.level}`, meta?.estimated_minutes && `${meta.estimated_minutes} min`]
-        .filter(Boolean)
-        .join(' • ');
+        .filter(Boolean).join(' • ');
 
-      // Inject lesson content into article
       readerPage.innerHTML = html;
-      statusEl.textContent = 'Lesson loaded.';
+      updateStatus('Lesson loaded.');
     } catch (err) {
       console.error('Lesson load error:', err);
-      readerMeta.textContent = '';
-      statusEl.textContent = 'Failed to load lesson. Are you serving files over http(s)?';
+      updateStatus('Load failed. Are you serving via http(s)? See console for details.');
     }
   }
 
-  // Bind the sample lesson button
+  // Wire Lesson 1
   if (lessonBtn) {
     lessonBtn.addEventListener('click', (e) => {
-      const base = e.currentTarget.getAttribute('data-base') || 'lessons/pl/lesson1/';
-      loadLessonFromBase(base.endsWith('/') ? base : base + '/');
+      const base = (e.currentTarget.getAttribute('data-base') || 'lessons/pl/lesson1/').trim();
+      loadLessonFromBase(base);
     });
-
   }
 
-  // ====== Pomodoro logic (vanish timer while running)
-  let state = 'idle';           // 'idle' | 'running' | 'paused' | 'finished'
-  let intervalId = null;
-  let startTs = 0;              // ms since epoch when counting truly started/resumed
-  let endTs = 0;                // ms since epoch when it should end
-  let remainingMs = 0;          // snapshot on pause
-  let pausedAccum = 0;          // total time paused (ms)
-  let lastPauseTs = 0;          // ms when paused began
+  // ===== Pomodoro (vanish while running, hover/tap to peek, Finish button)
+  let state = 'idle'; // 'idle' | 'running' | 'paused' | 'finished'
+  let tick = null, startTs=0, endTs=0, remainingMs=0, pausedAccum=0, lastPauseTs=0;
 
   const isTouch = matchMedia('(pointer:coarse)').matches;
+  const setVanish = (on) => { timeEl.classList.toggle('vanish', !!on); if (!on) timeEl.classList.remove('peek'); };
 
-  const setVanish = (on) => {
-    // Make counting vanish; reveal on hover/focus. On touch, we allow tap to “peek”.
-    if (on) {
-      timeEl.classList.add('vanish');
-    } else {
-      timeEl.classList.remove('vanish', 'peek');
-    }
-  };
-
-  // Touch “peek” (tap to show for a few seconds)
   let peekTimer = null;
-  const peekTime = () => {
-    timeEl.classList.add('peek');
-    clearTimeout(peekTimer);
-    peekTimer = setTimeout(() => timeEl.classList.remove('peek'), 2500);
-  };
-  if (isTouch) {
-    timeEl.addEventListener('click', () => {
-      if (state === 'running') peekTime();
-    });
-  }
-
-  const updateStatus = (msg) => { statusEl.textContent = msg || ''; };
+  const peek = () => { timeEl.classList.add('peek'); clearTimeout(peekTimer); peekTimer = setTimeout(()=>timeEl.classList.remove('peek'), 2500); };
+  if (isTouch) timeEl.addEventListener('click', ()=>{ if (state==='running') peek(); });
 
   const renderTick = () => {
-    const now = Date.now();
-    const ms = Math.max(0, endTs - now);
+    const ms = Math.max(0, endTs - Date.now());
     timeEl.textContent = fmt(ms);
-    if (ms <= 0) {
-      finishAuto();
-    }
+    if (ms <= 0) finishAuto();
   };
 
   const start = () => {
     const mins = Math.max(1, Math.min(60, parseInt(durInput.value, 10) || 25));
     if (state === 'idle' || state === 'finished') {
-      pausedAccum = 0;
-      startTs = Date.now();
-      endTs = startTs + mins * 60_000;
+      pausedAccum = 0; startTs = Date.now(); endTs = startTs + mins*60_000;
     } else if (state === 'paused') {
-      const now = Date.now();
-      pausedAccum += now - lastPauseTs;
-      // Continue from remaining
-      endTs = now + remainingMs;
-      startTs = now; // set a new start for reference
+      const now = Date.now(); pausedAccum += now - lastPauseTs; endTs = now + remainingMs; startTs = now;
     }
-    clearInterval(intervalId);
-    intervalId = setInterval(renderTick, 250);
-    state = 'running';
-    setVanish(true);
-    updateStatus('Focus on your study — timer running.');
+    clearInterval(tick); tick = setInterval(renderTick, 250);
+    state = 'running'; setVanish(true); updateStatus('Timer running…');
     renderTick();
   };
 
   const pause = () => {
     if (state !== 'running') return;
-    clearInterval(intervalId);
-    remainingMs = Math.max(0, endTs - Date.now());
-    lastPauseTs = Date.now();
-    state = 'paused';
-    setVanish(false);
-    updateStatus('Paused.');
+    clearInterval(tick); remainingMs = Math.max(0, endTs - Date.now()); lastPauseTs = Date.now();
+    state = 'paused'; setVanish(false); updateStatus('Paused.');
   };
 
   const reset = () => {
-    clearInterval(intervalId);
-    state = 'idle';
-    remainingMs = 0;
-    pausedAccum = 0;
-    timeEl.textContent = fmt((parseInt(durInput.value, 10) || 25) * 60_000);
-    setVanish(false);
-    updateStatus('Ready.');
+    clearInterval(tick); state='idle'; remainingMs=0; pausedAccum=0;
+    timeEl.textContent = fmt((parseInt(durInput.value,10)||25)*60_000);
+    setVanish(false); updateStatus('Ready.');
   };
 
-  // Manual finish button behavior: save elapsed time since (last) start, minus pauses.
-  const finish = () => {
+  const finishManual = () => {
     if (state === 'idle') return;
-    clearInterval(intervalId);
-
-    let elapsedMs;
+    clearInterval(tick);
     const now = Date.now();
-
-    if (state === 'paused') {
-      // paused: elapsed is (lastPauseTs - start) minus pausedAccum before that
-      elapsedMs = (lastPauseTs - startTs) - pausedAccum;
-    } else {
-      // running: elapsed is (now - start) minus pausedAccum
-      elapsedMs = (now - startTs) - pausedAccum;
-    }
-    elapsedMs = Math.max(0, elapsedMs);
-
-    const minutes = Math.max(0, Math.round(elapsedMs / 60000));
-    if (minutes > 0) addToTotalStudied(minutes);
-
-    state = 'finished';
-    setVanish(false);
-    updateStatus(`Session finished. +${minutes} min`);
+    const elapsed = state==='paused' ? Math.max(0, (lastPauseTs - startTs) - pausedAccum)
+                                     : Math.max(0, (now - startTs) - pausedAccum);
+    const mins = Math.max(0, Math.round(elapsed/60000));
+    if (mins > 0) addMinutes(mins);
+    state='finished'; setVanish(false); updateStatus(`Session finished. +${mins} min`);
   };
 
-  // Auto-finish when countdown hits zero
   const finishAuto = () => {
-    clearInterval(intervalId);
-    state = 'finished';
-    setVanish(false);
-
-    // Full planned duration is credited (minus pauses, but at zero we assume completion).
-    // Compute how much was actually elapsed (endTs - (startTs)) minus pauses — should be planned mins.
-    const plannedMs = Math.max(0, endTs - startTs);
-    const elapsedMs = Math.max(0, plannedMs - pausedAccum);
-    const minutes = Math.max(0, Math.round(elapsedMs / 60000));
-
-    if (minutes > 0) addToTotalStudied(minutes);
-    beep(220, 880, 'triangle');
-    timeEl.textContent = '00:00';
-    updateStatus(`Great! Pomodoro complete. +${minutes} min`);
+    clearInterval(tick); state='finished'; setVanish(false);
+    const planned = Math.max(0, endTs - startTs);
+    const mins = Math.max(0, Math.round(Math.max(0, planned - pausedAccum)/60000));
+    if (mins > 0) addMinutes(mins);
+    beep(220, 880, 'triangle'); timeEl.textContent = '00:00';
+    updateStatus(`Great! Pomodoro complete. +${mins} min`);
   };
 
-  // Initial time value
-  timeEl.textContent = fmt((parseInt(durInput.value, 10) || 25) * 60_000);
-
-  // Bind controls
+  timeEl.textContent = fmt((parseInt(durInput.value,10)||25)*60_000);
   startBtn?.addEventListener('click', start);
   pauseBtn?.addEventListener('click', pause);
   resetBtn?.addEventListener('click', reset);
 
-  // Add a "Finish" button next to existing buttons (non-destructive)
   if (pomodoroRoot && !pomodoroRoot.querySelector('#pomodoro-finish')) {
     const finishBtn = document.createElement('button');
-    finishBtn.id = 'pomodoro-finish';
-    finishBtn.className = 'btn';
-    finishBtn.type = 'button';
-    finishBtn.textContent = 'Finish';
-    finishBtn.addEventListener('click', finish);
+    finishBtn.id='pomodoro-finish'; finishBtn.type='button'; finishBtn.className='btn'; finishBtn.textContent='Finish';
+    finishBtn.addEventListener('click', finishManual);
     pomodoroRoot.querySelector('.controls')?.appendChild(finishBtn);
   }
 
-  // Keep display in sync if user changes duration while idle
-  durInput?.addEventListener('change', () => {
-    if (state === 'idle' || state === 'finished') {
-      const mins = Math.max(1, Math.min(60, parseInt(durInput.value, 10) || 25));
-      timeEl.textContent = fmt(mins * 60_000);
+  durInput?.addEventListener('change', ()=>{
+    if (state==='idle' || state==='finished') {
+      const mins = Math.max(1, Math.min(60, parseInt(durInput.value,10)||25));
+      timeEl.textContent = fmt(mins*60_000);
     }
   });
 });
