@@ -200,4 +200,141 @@
       box-shadow: 0 14px 40px rgba(17,24,39,.07), inset 0 1px 0 #fff;
     }
     .page h3{ margin:0 0 10px; font-weight:700; letter-spacing:-.01em }
-    .pag
+    .page .meta{ color:#6b7280; font-size:12px; margin-bottom:10px }
+    .page p{ margin: 0 0 14px; text-align: justify; hyphens: auto }
+
+    .muted{ color:var(--muted); font-size:var(--text-sm) }
+
+    /* Bigger touch targets on coarse pointers */
+    @media (pointer:coarse){
+      .lesson-btn, .btn, input[type="number"]{ min-height: 52px }
+    }
+  </style>
+
+  <!-- Page logic -->
+  <script type="module" src="./js/session-page.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <div class="shell card" role="application" aria-label="Language study app">
+    <header class="card-header">
+      <div class="title">
+        <!-- Target icon -->
+        <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="1.5"/>
+          <circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="1.5"/>
+          <circle cx="12" cy="12" r="1.2" fill="currentColor"/>
+        </svg>
+        <span>Private Study Session</span>
+      </div>
+      <button id="signout" type="button" aria-label="Sign out">Sign out</button>
+    </header>
+
+    <main id="main" class="content">
+      <!-- LEFT RAIL (stacks first on mobile) -->
+      <aside class="rail" aria-label="Tools">
+        <!-- Pomodoro Panel -->
+        <section class="panel" aria-labelledby="focus-timer">
+          <h2 id="focus-timer">Focus Timer</h2>
+          <div class="pomodoro" id="pomodoro">
+            <div class="header">
+              <!-- Tomato SVG -->
+              <svg class="tomato" viewBox="0 0 64 64" aria-hidden="true">
+                <path d="M32 10c5 0 8-4 10-6 2 3 2 7 0 10 8-2 14 3 16 8-4-1-8 0-11 2 9 4 15 13 15 22 0 12-10 18-30 18S2 58 2 46c0-9 6-18 15-22-3-2-7-3-11-2 2-5 8-10 16-8-2-3-2-7 0-10 2 2 5 6 10 6Z" fill="#ef4444"/>
+                <path d="M26 12c3 2 7 2 12 0-2 3-5 5-8 5s-6-2-4-5Z" fill="#16a34a"/>
+              </svg>
+              <div class="time" id="pomodoro-time" aria-live="polite" aria-atomic="true">25:00</div>
+            </div>
+
+            <div class="config">
+              <label for="pomodoro-duration">Duration (min):</label>
+              <input id="pomodoro-duration" type="number" min="1" max="60" value="25" inputmode="numeric" />
+              <span class="muted">max 60</span>
+            </div>
+
+            <div class="controls" role="group" aria-label="Timer controls">
+              <button class="btn btn-primary" id="pomodoro-start">Start</button>
+              <button class="btn" id="pomodoro-pause">Pause</button>
+              <button class="btn btn-danger" id="pomodoro-reset">Reset</button>
+            </div>
+
+            <div class="muted" id="pomodoro-status" aria-live="polite"></div>
+          </div>
+        </section>
+
+        <!-- Lessons Panel -->
+        <section class="panel" aria-labelledby="available-lessons">
+          <h2 id="available-lessons">Available Lessons</h2>
+          <div class="lesson-list">
+            <!-- Lesson 1 (enabled) -->
+            <button class="lesson-btn" id="lesson-1" data-base="./lessons/pl/lesson1/" aria-describedby="lesson-1-meta">
+              <span>Lesson 1 <span class="badge">Polish</span></span>
+              <span class="muted" id="lesson-1-meta">Start</span>
+            </button>
+
+            <!-- Lessons 2–10 (locked) -->
+            <div class="tooltip-wrap">
+              <button class="lesson-btn" aria-disabled="true" disabled>Lesson 2</button>
+              <div class="tooltip" role="tooltip">Locked: complete previous lessons to unlock</div>
+            </div>
+            <div class="tooltip-wrap">
+              <button class="lesson-btn" aria-disabled="true" disabled>Lesson 3</button>
+              <div class="tooltip" role="tooltip">Locked: complete previous lessons to unlock</div>
+            </div>
+            <div class="tooltip-wrap">
+              <button class="lesson-btn" aria-disabled="true" disabled>Lesson 4</button>
+              <div class="tooltip" role="tooltip">Locked: complete previous lessons to unlock</div>
+            </div>
+            <div class="tooltip-wrap">
+              <button class="lesson-btn" aria-disabled="true" disabled>Lesson 5</button>
+              <div class="tooltip" role="tooltip">Locked: complete previous lessons to unlock</div>
+            </div>
+            <div class="tooltip-wrap">
+              <button class="lesson-btn" aria-disabled="true" disabled>Lesson 6</button>
+              <div class="tooltip" role="tooltip">Locked: complete previous lessons to unlock</div>
+            </div>
+            <div class="tooltip-wrap">
+              <button class="lesson-btn" aria-disabled="true" disabled>Lesson 7</button>
+              <div class="tooltip" role="tooltip">Locked: complete previous lessons to unlock</div>
+            </div>
+            <div class="tooltip-wrap">
+              <button class="lesson-btn" aria-disabled="true" disabled>Lesson 8</button>
+              <div class="tooltip" role="tooltip">Locked: complete previous lessons to unlock</div>
+            </div>
+            <div class="tooltip-wrap">
+              <button class="lesson-btn" aria-disabled="true" disabled>Lesson 9</button>
+              <div class="tooltip" role="tooltip">Locked: complete previous lessons to unlock</div>
+            </div>
+            <div class="tooltip-wrap">
+              <button class="lesson-btn" aria-disabled="true" disabled>Lesson 10</button>
+              <div class="tooltip" role="tooltip">Locked: complete previous lessons to unlock</div>
+            </div>
+          </div>
+        </section>
+      </aside>
+
+      <!-- RIGHT: Reader panel -->
+      <section class="reader" aria-labelledby="reader-heading">
+        <div class="reader-header">
+          <div class="reader-title">
+            <!-- Book icon -->
+            <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M4 6.5A2.5 2.5 0 0 1 6.5 4H20v14.25c0 .966-.784 1.75-1.75 1.75H6.5A2.5 2.5 0 0 0 4 22V6.5Z" stroke="currentColor" stroke-width="1.5"/>
+              <path d="M4 6.5A2.5 2.5 0 0 1 6.5 4H20M4 6.5V22" stroke="currentColor" stroke-width="1.5"/>
+            </svg>
+            <span id="reader-heading">Choose a lesson to begin</span>
+          </div>
+          <span class="muted" id="reader-meta"></span>
+        </div>
+        <div class="reader-body">
+          <article class="page" id="reader-page" aria-labelledby="reader-heading">
+            <h3>Welcome</h3>
+            <div class="meta">No lesson loaded</div>
+            <p>Select <strong>Lesson 1</strong> on the left to load today’s reading.</p>
+          </article>
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>
