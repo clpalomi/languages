@@ -1,158 +1,264 @@
-// js/session-page.js
-import { supabase } from "./client.js";         // your existing Supabase client
-import { setupPomodoro } from "./components/pomodoro.js";
+// ./js/session-page.js
+// Mobile-first session wiring: lesson loader + Pomodoro with vanish/hover reveal and study log.
 
-/* ---------- 1) Require auth ---------- */
-let user = null;
-let currentLessonKey = null;
-let sessionId = crypto.randomUUID();  // track this browser session-id for writes
+document.addEventListener('DOMContentLoaded', () => {
+  // ====== Elements
+  const lessonBtn = document.querySelector('#lesson-1');
+  const readerTitle = document.querySelector('#reader-heading') || document.querySelector('#reader-title');
+  const readerMeta = document.querySelector('#reader-meta');
+  const readerPage = document.querySelector('#reader-page');
 
-(async () => {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session?.user) {
-    const url = new URL(location.href);
-    url.pathname = '/login';
-    url.search = `?next=${encodeURIComponent(location.pathname)}`;
-    window.location.replace(url.toString());
-    return;
+  const pomodoroRoot = document.querySelector('#pomodoro');
+  const timeEl = document.querySelector('#pomodoro-time');
+  const durInput = document.querySelector('#pomodoro-duration');
+  const startBtn = document.querySelector('#pomodoro-start');
+  const pauseBtn = document.querySelector('#pomodoro-pause');
+  const resetBtn = document.querySelector('#pomodoro-reset');
+  const statusEl = document.querySelector('#pomodoro-status');
+
+  // Optional: create a study log line if you want to show cumulative minutes.
+  let logEl = document.querySelector('#study-log');
+  if (!logEl) {
+    logEl = document.createElement('div');
+    logEl.id = 'study-log';
+    logEl.className = 'muted';
+    statusEl?.insertAdjacentElement('afterend', logEl);
   }
-  user = session.user;
-})();
 
-/* ---------- 2) Sign out ---------- */
-document.getElementById('signout')?.addEventListener('click', async () => {
-  await supabase.auth.signOut();
-  window.location.replace('/login');
-});
+  // ====== Helpers
+  const fmt = (ms) => {
+    const s = Math.max(0, Math.round(ms / 1000));
+    const m = Math.floor(s / 60).toString().padStart(2, '0');
+    const ss = (s % 60).toString().padStart(2, '0');
+    return `${m}:${ss}`;
+  };
 
-/* ---------- 3) Lesson loading ---------- */
-const readerTitle = document.getElementById('reader-title');
-const readerMeta  = document.getElementById('reader-meta');
-const readerPage  = document.getElementById('reader-page');
+  const getTotalStudied = () => Number(localStorage.getItem('study_minutes_total') || '0');
+  const setTotalStudied = (m) => localStorage.setItem('study_minutes_total', String(m));
+  const addToTotalStudied = (m) => {
+    const total = getTotalStudied() + m;
+    setTotalStudied(total);
+    renderStudyLog();
+    // You can listen for this elsewhere in your app if needed.
+    document.dispatchEvent(new CustomEvent('study:sessionSaved', { detail: { minutes: m, total } }));
+  };
+  const renderStudyLog = () => {
+    const total = getTotalStudied();
+    if (logEl) logEl.textContent = total ? `Total studied: ${total} min` : '';
+  };
+  renderStudyLog();
 
-async function loadLesson(label, basePath, key) {
-  currentLessonKey = key; // e.g., 'pl/lesson1'
-  readerTitle.textContent = label;
-  readerMeta.textContent  = 'Loading…';
+  // Simple WebAudio beep (no external files)
+  const beep = (duration = 220, freq = 880, type = 'sine') => {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = type;
+      osc.frequency.value = freq;
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      gain.gain.value = 0.06;
+      osc.start();
+      setTimeout(() => {
+        osc.stop();
+        ctx.close();
+      }, duration);
+    } catch {}
+  };
 
-  const contentUrl = new URL('content.html', basePath).toString();
-  const metaUrl    = new URL('meta.json', basePath).toString();
+  // ====== Lesson loading
+  async function loadLessonFromBase(base) {
+    if (!base) return;
+    try {
+      readerMeta.textContent = 'Loading...';
+      const [metaResp, contentResp] = await Promise.all([
+        fetch(new URL('meta.json', base), { cache: 'no-cache' }),
+        fetch(new URL('content.html', base), { cache: 'no-cache' })
+      ]);
 
-  try {
-    const [metaRes, contentRes] = await Promise.allSettled([
-      fetch(metaUrl, { cache:'no-store' }),
-      fetch(contentUrl, { cache:'no-store' })
-    ]);
+      if (!metaResp.ok) throw new Error(`meta.json ${metaResp.status}`);
+      if (!contentResp.ok) throw new Error(`content.html ${contentResp.status}`);
 
-    let meta = {};
-    if (metaRes.status === 'fulfilled' && metaRes.value.ok) {
-      meta = await metaRes.value.json();
+      const meta = await metaResp.json();
+      const html = await contentResp.text();
+
+      if (readerTitle) readerTitle.textContent = meta?.title || 'Lesson';
+      readerMeta.textContent = [meta?.level && `Level ${meta.level}`, meta?.estimated_minutes && `${meta.estimated_minutes} min`]
+        .filter(Boolean)
+        .join(' • ');
+
+      // Inject lesson content into article
+      readerPage.innerHTML = html;
+      statusEl.textContent = 'Lesson loaded.';
+    } catch (err) {
+      console.error('Lesson load error:', err);
+      readerMeta.textContent = '';
+      statusEl.textContent = 'Failed to load lesson. Are you serving files over http(s)?';
     }
+  }
 
-    let html;
-    if (contentRes.status === 'fulfilled' && contentRes.value.ok) {
-      html = await contentRes.value.text();
+  // Bind the sample lesson button
+  if (lessonBtn) {
+    lessonBtn.addEventListener('click', (e) => {
+      const base = e.currentTarget.getAttribute('data-base');
+      // NOTE: fetch() won’t work from file:// — run a local server (e.g., `npx serve` in your project root).
+      loadLessonFromBase(base);
+    });
+  }
+
+  // ====== Pomodoro logic (vanish timer while running)
+  let state = 'idle';           // 'idle' | 'running' | 'paused' | 'finished'
+  let intervalId = null;
+  let startTs = 0;              // ms since epoch when counting truly started/resumed
+  let endTs = 0;                // ms since epoch when it should end
+  let remainingMs = 0;          // snapshot on pause
+  let pausedAccum = 0;          // total time paused (ms)
+  let lastPauseTs = 0;          // ms when paused began
+
+  const isTouch = matchMedia('(pointer:coarse)').matches;
+
+  const setVanish = (on) => {
+    // Make counting vanish; reveal on hover/focus. On touch, we allow tap to “peek”.
+    if (on) {
+      timeEl.classList.add('vanish');
     } else {
-      html = `
-        <h3>${label}</h3>
-        <div class="meta">${meta.level ? 'Level ' + meta.level : ''}</div>
-        <p><em>(Content file not found at <code>${contentUrl}</code>. Showing placeholder.)</em></p>
-        <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed non risus. Suspendisse lectus tortor,
-        dignissim sit amet, adipiscing nec, ultricies sed, dolor.</p>
-      `;
+      timeEl.classList.remove('vanish', 'peek');
     }
+  };
 
-    readerPage.innerHTML = html;
-    readerMeta.textContent = [
-      meta.level ? `Level ${meta.level}` : null,
-      meta.estimated_minutes ? `~${meta.estimated_minutes} min` : null
-    ].filter(Boolean).join(' • ');
-  } catch (err) {
-    readerPage.innerHTML = `
-      <h3>${label}</h3>
-      <div class="meta">Error loading content</div>
-      <p>Could not load lesson content. Please try again.</p>
-      <pre style="font-size:12px; white-space:pre-wrap">${String(err)}</pre>
-    `;
-    readerMeta.textContent = '';
+  // Touch “peek” (tap to show for a few seconds)
+  let peekTimer = null;
+  const peekTime = () => {
+    timeEl.classList.add('peek');
+    clearTimeout(peekTimer);
+    peekTimer = setTimeout(() => timeEl.classList.remove('peek'), 2500);
+  };
+  if (isTouch) {
+    timeEl.addEventListener('click', () => {
+      if (state === 'running') peekTime();
+    });
   }
-}
 
-document.getElementById('lesson-1')?.addEventListener('click', (e) => {
-  const base = e.currentTarget.getAttribute('data-base') || './lessons/pl/lesson1/';
-  // use URL to make it robust under subpaths
-  const baseUrl = new URL(base, document.baseURI);
-  loadLesson('Lesson 1 — Polish', baseUrl, 'pl/lesson1');
-});
+  const updateStatus = (msg) => { statusEl.textContent = msg || ''; };
 
-/* ---------- 4) Pomodoro + Supabase persistence ---------- */
-/* Schema you should have (run in Supabase SQL editor):
-create table public.lesson_time (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references auth.users(id) on delete cascade,
-  session_id uuid not null,                 -- from crypto.randomUUID()
-  lesson_key text not null,                 -- e.g., 'pl/lesson1'
-  seconds_studied int not null default 0,
-  started_at timestamptz default now(),
-  updated_at timestamptz default now()
-);
-alter table public.lesson_time enable row level security;
-create policy "own rows" on public.lesson_time for all
-  using (auth.uid() = user_id) with check (auth.uid() = user_id);
-*/
-
-let timeRowId = null;           // current row id in lesson_time
-let lastSavedSeconds = 0;       // to avoid over-writing with smaller values
-
-async function ensureTimeRow() {
-  if (!user || !currentLessonKey) return;
-  if (timeRowId) return;
-  // create a fresh row for this session/lesson
-  const { data, error } = await supabase.from('lesson_time').insert({
-    user_id: user.id,
-    session_id: sessionId,
-    lesson_key: currentLessonKey,
-    seconds_studied: 0
-  }).select('id').single();
-  if (!error) timeRowId = data.id;
-}
-
-async function saveAccumulated(seconds) {
-  if (!user || !currentLessonKey) return;
-  if (seconds <= lastSavedSeconds) return; // no-op
-  await ensureTimeRow();
-  if (!timeRowId) return;
-  lastSavedSeconds = seconds;
-  await supabase.from('lesson_time').update({
-    seconds_studied: seconds,
-    updated_at: new Date().toISOString()
-  }).eq('id', timeRowId).eq('user_id', user.id);
-}
-
-const pomo = setupPomodoro(document.getElementById('pomodoro'), {
-  maxMinutes: 60,
-  onStart: async () => {
-    // create time row when user starts and a lesson is selected
-    await ensureTimeRow();
-  },
-  onTick: async (accumulatedSeconds) => {
-    // save every 30s to reduce writes
-    if (accumulatedSeconds % 30 === 0) {
-      await saveAccumulated(accumulatedSeconds);
+  const renderTick = () => {
+    const now = Date.now();
+    const ms = Math.max(0, endTs - now);
+    timeEl.textContent = fmt(ms);
+    if (ms <= 0) {
+      finishAuto();
     }
-  },
-  onPause: async (accumulatedSeconds) => {
-    await saveAccumulated(accumulatedSeconds);
-  },
-  onFinish: async (accumulatedSeconds) => {
-    await saveAccumulated(accumulatedSeconds);
-  },
-  onReset: () => { /* no-op */ }
-});
+  };
 
-// Safety: before page unload, persist latest
-window.addEventListener('beforeunload', async (e) => {
-  const { accumulated } = pomo.getState();
-  await saveAccumulated(accumulated);
-});
+  const start = () => {
+    const mins = Math.max(1, Math.min(60, parseInt(durInput.value, 10) || 25));
+    if (state === 'idle' || state === 'finished') {
+      pausedAccum = 0;
+      startTs = Date.now();
+      endTs = startTs + mins * 60_000;
+    } else if (state === 'paused') {
+      const now = Date.now();
+      pausedAccum += now - lastPauseTs;
+      // Continue from remaining
+      endTs = now + remainingMs;
+      startTs = now; // set a new start for reference
+    }
+    clearInterval(intervalId);
+    intervalId = setInterval(renderTick, 250);
+    state = 'running';
+    setVanish(true);
+    updateStatus('Focus on your study — timer running.');
+    renderTick();
+  };
 
+  const pause = () => {
+    if (state !== 'running') return;
+    clearInterval(intervalId);
+    remainingMs = Math.max(0, endTs - Date.now());
+    lastPauseTs = Date.now();
+    state = 'paused';
+    setVanish(false);
+    updateStatus('Paused.');
+  };
+
+  const reset = () => {
+    clearInterval(intervalId);
+    state = 'idle';
+    remainingMs = 0;
+    pausedAccum = 0;
+    timeEl.textContent = fmt((parseInt(durInput.value, 10) || 25) * 60_000);
+    setVanish(false);
+    updateStatus('Ready.');
+  };
+
+  // Manual finish button behavior: save elapsed time since (last) start, minus pauses.
+  const finish = () => {
+    if (state === 'idle') return;
+    clearInterval(intervalId);
+
+    let elapsedMs;
+    const now = Date.now();
+
+    if (state === 'paused') {
+      // paused: elapsed is (lastPauseTs - start) minus pausedAccum before that
+      elapsedMs = (lastPauseTs - startTs) - pausedAccum;
+    } else {
+      // running: elapsed is (now - start) minus pausedAccum
+      elapsedMs = (now - startTs) - pausedAccum;
+    }
+    elapsedMs = Math.max(0, elapsedMs);
+
+    const minutes = Math.max(0, Math.round(elapsedMs / 60000));
+    if (minutes > 0) addToTotalStudied(minutes);
+
+    state = 'finished';
+    setVanish(false);
+    updateStatus(`Session finished. +${minutes} min`);
+  };
+
+  // Auto-finish when countdown hits zero
+  const finishAuto = () => {
+    clearInterval(intervalId);
+    state = 'finished';
+    setVanish(false);
+
+    // Full planned duration is credited (minus pauses, but at zero we assume completion).
+    // Compute how much was actually elapsed (endTs - (startTs)) minus pauses — should be planned mins.
+    const plannedMs = Math.max(0, endTs - startTs);
+    const elapsedMs = Math.max(0, plannedMs - pausedAccum);
+    const minutes = Math.max(0, Math.round(elapsedMs / 60000));
+
+    if (minutes > 0) addToTotalStudied(minutes);
+    beep(220, 880, 'triangle');
+    timeEl.textContent = '00:00';
+    updateStatus(`Great! Pomodoro complete. +${minutes} min`);
+  };
+
+  // Initial time value
+  timeEl.textContent = fmt((parseInt(durInput.value, 10) || 25) * 60_000);
+
+  // Bind controls
+  startBtn?.addEventListener('click', start);
+  pauseBtn?.addEventListener('click', pause);
+  resetBtn?.addEventListener('click', reset);
+
+  // Add a "Finish" button next to existing buttons (non-destructive)
+  if (pomodoroRoot && !pomodoroRoot.querySelector('#pomodoro-finish')) {
+    const finishBtn = document.createElement('button');
+    finishBtn.id = 'pomodoro-finish';
+    finishBtn.className = 'btn';
+    finishBtn.type = 'button';
+    finishBtn.textContent = 'Finish';
+    finishBtn.addEventListener('click', finish);
+    pomodoroRoot.querySelector('.controls')?.appendChild(finishBtn);
+  }
+
+  // Keep display in sync if user changes duration while idle
+  durInput?.addEventListener('change', () => {
+    if (state === 'idle' || state === 'finished') {
+      const mins = Math.max(1, Math.min(60, parseInt(durInput.value, 10) || 25));
+      timeEl.textContent = fmt(mins * 60_000);
+    }
+  });
+});
