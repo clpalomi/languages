@@ -9,19 +9,18 @@
     :root{
       --primary:#6d28d9; --primary-600:#7c3aed; --primary-400:#a78bfa;
       --accent:#22c55e; --bg-start:#f6f7ff; --bg-end:#f9fafb;
-      --card-bg: rgba(255,255,255,.9); --radius:16px;
+      --card-bg: rgba(255,255,255,.9);
+      --radius:16px; --radius-lg:20px;
       --shadow-md:0 10px 30px rgba(17,24,39,.08);
-      --muted:#6b7280; --border:#e5e7eb; --badge:#eef2ff;
-      --danger:#ef4444;
+      --muted:#6b7280; --border:#e5e7eb; --badge:#eef2ff; --danger:#ef4444;
 
+      --tap: 48px;
       --space-xs: clamp(6px, 1.2vw, 8px);
       --space-sm: clamp(10px, 1.6vw, 12px);
       --space-md: clamp(14px, 2vw, 16px);
       --space-lg: clamp(18px, 3vw, 24px);
       --space-xl: clamp(24px, 4vw, 32px);
-      --radius-lg: 20px;
 
-      --tap: 48px; /* min touch target */
       --text: clamp(15px, 1.4vw, 17px);
       --text-sm: clamp(12px, 1.2vw, 14px);
       --text-lg: clamp(18px, 2vw, 20px);
@@ -52,15 +51,9 @@
                calc(env(safe-area-inset-bottom) + var(--space-md));
     }
     @media (prefers-color-scheme: dark){ body{ color:#e5e7eb } }
-    @media (prefers-reduced-motion: reduce){
-      *{ animation-duration:.001ms !important; animation-iteration-count:1 !important; transition:none !important; scroll-behavior:auto !important; }
-    }
 
-    a.skip-link{
-      position:absolute; left:-9999px; top:auto; width:1px; height:1px; overflow:hidden;
-    }
-    a.skip-link:focus{ position:fixed; left:var(--space-md); top:var(--space-md); z-index:9999;
-      background:#111827; color:#fff; padding:8px 12px; border-radius:10px }
+    a.skip-link{ position:absolute; left:-9999px; top:auto; width:1px; height:1px; overflow:hidden; }
+    a.skip-link:focus{ position:fixed; left:var(--space-md); top:var(--space-md); z-index:9999; background:#111827; color:#fff; padding:8px 12px; border-radius:10px }
 
     /* Shell + header */
     .shell{ max-width: 1200px; margin:0 auto }
@@ -70,28 +63,38 @@
       position: sticky; top: calc(env(safe-area-inset-top) + 0px); z-index: 50;
       padding: var(--space-sm) var(--space-md);
       background:linear-gradient(90deg, var(--primary-600), var(--primary));
-      color:#fff; display:flex; align-items:center; justify-content:space-between; gap:12px;
+      color:#fff; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
       backdrop-filter: saturate(120%) blur(8px);
     }
     .title{ display:flex; align-items:center; gap:10px; font-weight:800; letter-spacing:-.01em; font-size:var(--title) }
     .title .icon{ inline-size:22px; block-size:22px }
-    #signout{
-      min-height: var(--tap); padding:0 14px; border-radius:12px; border:1px solid rgba(255,255,255,.28);
+    .header-actions{ display:flex; align-items:center; gap:8px; flex-wrap:wrap }
+    .select{
+      min-height: var(--tap); border-radius:12px; border:1px solid rgba(255,255,255,.28);
+      background:rgba(255,255,255,.12); color:#fff; font-weight:700; padding:0 12px;
+    }
+    .timer-chip{
+      display:inline-flex; align-items:center; gap:8px;
+      min-height: var(--tap); padding:0 12px; border-radius:999px;
+      background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.28);
+      font-weight:800; cursor:pointer; -webkit-tap-highlight-color:transparent;
+    }
+    .timer-chip .dot{ inline-size:8px; block-size:8px; border-radius:999px; background:#22c55e; }
+    .btn-ghost{
+      min-height: var(--tap); padding:0 12px; border-radius:12px; border:1px solid rgba(255,255,255,.28);
       background:rgba(255,255,255,.12); color:#fff; font-weight:700; cursor:pointer;
-      -webkit-tap-highlight-color: transparent;
     }
     @media (hover:hover){
-      #signout:hover{ background:rgba(255,255,255,.2) }
+      .btn-ghost:hover, .timer-chip:hover{ background:rgba(255,255,255,.2) }
     }
 
-    /* ===== Layout: mobile-first ===== */
+    /* Layout */
     .content{
       display:grid; gap: var(--space-md); padding: var(--space-md);
-      grid-template-columns: 1fr; /* mobile: single column */
+      grid-template-columns: 1fr;
     }
-    /* desktop upgrade */
-    @media (min-width: 960px){
-      .content{ grid-template-columns: 320px 1fr; }
+    @media (min-width: 980px){
+      .content{ grid-template-columns: 300px 1fr; }
     }
 
     /* Panels / rail */
@@ -101,96 +104,43 @@
     }
     .panel h2{ margin:0 0 var(--space-sm); font-size:16px; font-weight:800; letter-spacing:-.01em }
 
-    /* Buttons */
-    .btn{
-      min-height: var(--tap); padding:0 12px; border-radius:10px; border:1px solid var(--border);
-      background:#fff; color:#111827; font-weight:700; cursor:pointer;
-      display:inline-flex; align-items:center; gap:8px; -webkit-tap-highlight-color: transparent;
-      transition: background .15s;
+    /* Accordion lessons (desktop) */
+    details.lesson-accordion{ border:1px solid var(--border); border-radius:12px; overflow:hidden; background:var(--card-bg) }
+    details.lesson-accordion > summary{
+      list-style:none; cursor:pointer; padding:12px var(--space-md); font-weight:800; background:linear-gradient(90deg, var(--primary-400), var(--primary-600)); color:#fff;
     }
-    @media (hover:hover){
-      .btn:hover{ background:#f9fafb }
-    }
-    .btn-primary{
-      background: linear-gradient(180deg, var(--primary-600), var(--primary)); color:#fff; border:0;
-      box-shadow: inset 0 0 0 1px rgba(255,255,255,.12), 0 6px 20px rgba(124,58,237,.28);
-    }
-    .btn-danger{
-      background: linear-gradient(180deg, #f87171, var(--danger)); color:#fff; border:0;
-      box-shadow: inset 0 0 0 1px rgba(255,255,255,.12), 0 6px 20px rgba(239,68,68,.28);
-    }
+    details.lesson-accordion[open] > summary{ border-bottom:1px solid var(--border) }
+    .lesson-list{ display:grid; gap:8px; padding: var(--space-md) }
 
-    /* Lesson list */
-    .lesson-list{ display:grid; gap:10px }
     .lesson-btn{
       inline-size:100%; min-height: var(--tap); border-radius:12px; border:1px solid var(--border);
       background:#fff; color:#111827; font-weight:700; cursor:pointer;
       display:flex; align-items:center; justify-content:space-between; padding:0 12px;
-      transition: background .15s, border-color .2s;
+      transition: background .15s;
       text-align:left;
     }
-    @media (hover:hover){
-      .lesson-btn:hover{ background:#f9fafb }
-    }
+    @media (hover:hover){ .lesson-btn:hover{ background:#f9fafb } }
     .lesson-btn .badge{
       margin-inline-start:8px; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:800;
       background:var(--badge); color:var(--primary-600); border:1px solid color-mix(in srgb, var(--primary-600) 18%, transparent);
     }
-    .lesson-btn[disabled], .lesson-btn[aria-disabled="true"]{
-      cursor:not-allowed; opacity:.7; background:color-mix(in srgb, #fff 80%, var(--border));
-    }
     .tooltip-wrap{ position:relative }
-    @media (hover:hover){
-      .tooltip-wrap:hover .tooltip{ opacity:1; transform: translateY(0); pointer-events:auto }
-    }
     .tooltip{
       position:absolute; inset-inline-end:0; top:50%; transform: translateY(-8px); opacity:0; pointer-events:none;
       background:#111827; color:#fff; font-size:12px; padding:6px 8px; border-radius:8px; white-space:nowrap;
       box-shadow:0 10px 30px rgba(17,24,39,.18); transition: opacity .15s, transform .15s;
     }
+    @media (hover:hover){ .tooltip-wrap:hover .tooltip{ opacity:1; transform: translateY(0); pointer-events:auto } }
     @media (prefers-color-scheme: dark){
       .lesson-btn{ background:#171a21; color:#e5e7eb }
       @media (hover:hover){ .lesson-btn:hover{ background:#1b2029 } }
       .tooltip{ background:#e5e7eb; color:#111827 }
     }
 
-    /* Pomodoro */
-    .pomodoro{ display:grid; gap:12px }
-    .pomodoro .header{ display:flex; align-items:center; gap:10px }
-    .pomodoro .tomato{ inline-size:28px; block-size:28px; flex:0 0 auto }
-    .pomodoro .time{ font-size: clamp(24px, 5vw, 28px); font-weight:800; letter-spacing:.04em }
-    .pomodoro .controls{ display:flex; gap:8px; flex-wrap: wrap }
-    .pomodoro .config{ display:flex; align-items:center; gap:8px; color:var(--muted); font-size:var(--text-sm) }
-    .pomodoro input[type="number"]{
-      inline-size:84px; min-height: var(--tap); padding:0 10px; border-radius:10px; border:1px solid var(--border);
-      background:#fff; color:#111827; font-weight:700;
-    }
-
-    /* Vanish the counter while running; reveal on hover/focus/peek */
-    .pomodoro .time {
-      transition: opacity .18s ease;
-    }
-    .pomodoro .time.vanish {
-      opacity: 0;
-    }
-    .pomodoro .time.vanish:hover,
-    .pomodoro .time.vanish:focus-visible,
-    .pomodoro .time.vanish.peek {
-      opacity: 1;
-    }
-
-    
-    @media (prefers-color-scheme: dark){
-      .btn{ background:#171a21; color:#e5e7eb; border-color:var(--border) }
-      @media (hover:hover){ .btn:hover{ background:#1b2029 } }
-      .pomodoro input[type="number"]{ background:#111318; color:#e5e7eb }
-    }
-    
-
     /* Reader */
     .reader{
       background:var(--card-bg); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow-md);
-      overflow:hidden; display:flex; flex-direction:column; min-block-size: 60svh;
+      overflow:hidden; display:flex; flex-direction:column; min-block-size: 65svh;
     }
     .reader-header{
       padding: var(--space-sm) var(--space-md); background:linear-gradient(90deg, var(--primary-400), var(--primary-600)); color:#fff;
@@ -198,13 +148,7 @@
     }
     .reader-title{ font-weight:800; letter-spacing:-.01em; display:flex; align-items:center; gap:8px }
     .reader-title .icon{ inline-size:22px; block-size:22px }
-    .reader-body{
-      padding: var(--space-md);
-      background:
-        radial-gradient(1200px 600px at -10% -40%, rgba(255,255,255,.45), transparent 60%),
-        linear-gradient(#fcfcfd, #ffffff);
-      display:block; flex:1 1 auto;
-    }
+    .reader-body{ padding: var(--space-md); display:block; flex:1 1 auto; }
     .page{
       max-inline-size: min(100%, var(--measure));
       margin:0 auto;
@@ -215,19 +159,34 @@
       border:1px solid #ebe6df; border-radius:14px;
       box-shadow: 0 14px 40px rgba(17,24,39,.07), inset 0 1px 0 #fff;
     }
-    .page h3{ margin:0 0 10px; font-weight:700; letter-spacing:-.01em }
-    .page .meta{ color:#6b7280; font-size:12px; margin-bottom:10px }
-    .page p{ margin: 0 0 14px; text-align: justify; hyphens: auto }
+    .page p{ margin:0 0 14px; text-align: justify; hyphens:auto }
 
     .muted{ color:var(--muted); font-size:var(--text-sm) }
 
-    /* Bigger touch targets on coarse pointers */
+    /* Bottom-sheet Pomodoro */
+    .sheet{
+      position: fixed; inset-inline:0; bottom:0; transform: translateY(100%);
+      background:var(--card-bg); border-top:1px solid var(--border); border-radius: 16px 16px 0 0;
+      box-shadow: 0 -20px 40px rgba(0,0,0,.2); z-index: 60; padding: var(--space-md);
+      transition: transform .25s ease;
+    }
+    .sheet.open{ transform: translateY(0) }
+    .sheet .grab{ inline-size:48px; block-size:4px; border-radius:999px; background:var(--border); margin:0 auto var(--space-sm); }
+    .pomodoro .time{ font-size: clamp(24px, 5vw, 28px); font-weight:800; letter-spacing:.04em; transition:opacity .18s }
+    .pomodoro .time.vanish{ opacity:0 }
+    .pomodoro .controls{ display:flex; gap:8px; flex-wrap:wrap }
+    .pomodoro input[type="number"]{
+      inline-size:84px; min-height: var(--tap); padding:0 10px; border-radius:10px; border:1px solid var(--border);
+      background:#fff; color:#111827; font-weight:700;
+    }
+    @media (prefers-color-scheme: dark){ .pomodoro input[type="number"]{ background:#111318; color:#e5e7eb } }
+
+    /* Accessibility: larger touch targets */
     @media (pointer:coarse){
-      .lesson-btn, .btn, input[type="number"]{ min-height: 52px }
+      .lesson-btn, .btn-ghost, .select, .timer-chip, input[type="number"]{ min-height:52px }
     }
   </style>
 
-  <!-- Page logic -->
   <script type="module" src="./js/session-page.js" defer></script>
 </head>
 <body>
@@ -235,7 +194,6 @@
   <div class="shell card" role="application" aria-label="Language study app">
     <header class="card-header">
       <div class="title">
-        <!-- Target icon -->
         <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="1.5"/>
           <circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="1.5"/>
@@ -243,54 +201,40 @@
         </svg>
         <span>Private Study Session</span>
       </div>
-      <button id="signout" type="button" aria-label="Sign out">Sign out</button>
+
+      <!-- Actions: Mobile-first -->
+      <div class="header-actions">
+        <!-- Lessons dropdown (mobile/any) -->
+        <label class="sr-only" for="lesson-select">Choose lesson</label>
+        <select id="lesson-select" class="select" aria-label="Choose a lesson">
+          <option value="" selected disabled>Choose a lesson…</option>
+          <option value="./lessons/pl/lesson1/">Lesson 1 — Polish</option>
+          <option value="locked" disabled>Lesson 2 — Locked</option>
+          <option value="locked" disabled>Lesson 3 — Locked</option>
+        </select>
+
+        <!-- Timer chip opens bottom-sheet -->
+        <button type="button" id="open-timer" class="timer-chip" aria-haspopup="dialog" aria-controls="timer-sheet" aria-expanded="false">
+          <span class="dot" aria-hidden="true"></span>
+          <span id="chip-time">25:00</span>
+        </button>
+
+        <button id="signout" type="button" class="btn-ghost" aria-label="Sign out">Sign out</button>
+      </div>
     </header>
 
     <main id="main" class="content">
-      <!-- LEFT RAIL (stacks first on mobile) -->
+      <!-- LEFT RAIL (shown on desktop) -->
       <aside class="rail" aria-label="Tools">
-        <!-- Pomodoro Panel -->
-        <section class="panel" aria-labelledby="focus-timer">
-          <h2 id="focus-timer">Focus Timer</h2>
-          <div class="pomodoro" id="pomodoro">
-            <div class="header">
-              <!-- Tomato SVG -->
-              <svg class="tomato" viewBox="0 0 64 64" aria-hidden="true">
-                <path d="M32 10c5 0 8-4 10-6 2 3 2 7 0 10 8-2 14 3 16 8-4-1-8 0-11 2 9 4 15 13 15 22 0 12-10 18-30 18S2 58 2 46c0-9 6-18 15-22-3-2-7-3-11-2 2-5 8-10 16-8-2-3-2-7 0-10 2 2 5 6 10 6Z" fill="#ef4444"/>
-                <path d="M26 12c3 2 7 2 12 0-2 3-5 5-8 5s-6-2-4-5Z" fill="#16a34a"/>
-              </svg>
-              <div class="time" id="pomodoro-time" aria-live="polite" aria-atomic="true">25:00</div>
-            </div>
-
-            <div class="config">
-              <label for="pomodoro-duration">Duration (min):</label>
-              <input id="pomodoro-duration" type="number" min="1" max="60" value="25" inputmode="numeric" />
-              <span class="muted">max 60</span>
-            </div>
-
-            <div class="controls" role="group" aria-label="Timer controls">
-              <button class="btn btn-primary" id="pomodoro-start">Start</button>
-              <button class="btn" id="pomodoro-pause">Pause</button>
-              <button class="btn btn-danger" id="pomodoro-reset">Reset</button>
-            </div>
-
-            <div class="muted" id="pomodoro-status" aria-live="polite"></div>
-            <div class="muted" id="study-log"></div>
-
-          </div>
-        </section>
-
-        <!-- Lessons Panel -->
-        <section class="panel" aria-labelledby="available-lessons">
-          <h2 id="available-lessons">Available Lessons</h2>
+        <!-- Lessons Accordion (desktop only; dropdown above still works everywhere) -->
+        <details class="lesson-accordion" open>
+          <summary>Available Lessons</summary>
           <div class="lesson-list">
-            <!-- Lesson 1 (enabled) -->
             <button class="lesson-btn" id="lesson-1" data-base="./lessons/pl/lesson1/" aria-describedby="lesson-1-meta">
               <span>Lesson 1 <span class="badge">Polish</span></span>
               <span class="muted" id="lesson-1-meta">Start</span>
             </button>
 
-            <!-- Lessons 2–10 (locked) -->
             <div class="tooltip-wrap">
               <button class="lesson-btn" aria-disabled="true" disabled>Lesson 2</button>
               <div class="tooltip" role="tooltip">Locked: complete previous lessons to unlock</div>
@@ -299,43 +243,14 @@
               <button class="lesson-btn" aria-disabled="true" disabled>Lesson 3</button>
               <div class="tooltip" role="tooltip">Locked: complete previous lessons to unlock</div>
             </div>
-            <div class="tooltip-wrap">
-              <button class="lesson-btn" aria-disabled="true" disabled>Lesson 4</button>
-              <div class="tooltip" role="tooltip">Locked: complete previous lessons to unlock</div>
-            </div>
-            <div class="tooltip-wrap">
-              <button class="lesson-btn" aria-disabled="true" disabled>Lesson 5</button>
-              <div class="tooltip" role="tooltip">Locked: complete previous lessons to unlock</div>
-            </div>
-            <div class="tooltip-wrap">
-              <button class="lesson-btn" aria-disabled="true" disabled>Lesson 6</button>
-              <div class="tooltip" role="tooltip">Locked: complete previous lessons to unlock</div>
-            </div>
-            <div class="tooltip-wrap">
-              <button class="lesson-btn" aria-disabled="true" disabled>Lesson 7</button>
-              <div class="tooltip" role="tooltip">Locked: complete previous lessons to unlock</div>
-            </div>
-            <div class="tooltip-wrap">
-              <button class="lesson-btn" aria-disabled="true" disabled>Lesson 8</button>
-              <div class="tooltip" role="tooltip">Locked: complete previous lessons to unlock</div>
-            </div>
-            <div class="tooltip-wrap">
-              <button class="lesson-btn" aria-disabled="true" disabled>Lesson 9</button>
-              <div class="tooltip" role="tooltip">Locked: complete previous lessons to unlock</div>
-            </div>
-            <div class="tooltip-wrap">
-              <button class="lesson-btn" aria-disabled="true" disabled>Lesson 10</button>
-              <div class="tooltip" role="tooltip">Locked: complete previous lessons to unlock</div>
-            </div>
           </div>
-        </section>
+        </details>
       </aside>
 
-      <!-- RIGHT: Reader panel -->
+      <!-- RIGHT: Reader -->
       <section class="reader" aria-labelledby="reader-heading">
         <div class="reader-header">
           <div class="reader-title">
-            <!-- Book icon -->
             <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <path d="M4 6.5A2.5 2.5 0 0 1 6.5 4H20v14.25c0 .966-.784 1.75-1.75 1.75H6.5A2.5 2.5 0 0 0 4 22V6.5Z" stroke="currentColor" stroke-width="1.5"/>
               <path d="M4 6.5A2.5 2.5 0 0 1 6.5 4H20M4 6.5V22" stroke="currentColor" stroke-width="1.5"/>
@@ -348,11 +263,42 @@
           <article class="page" id="reader-page" aria-labelledby="reader-heading">
             <h3>Welcome</h3>
             <div class="meta">No lesson loaded</div>
-            <p>Select <strong>Lesson 1</strong> on the left to load today’s reading.</p>
+            <p>Select <strong>Lesson 1</strong> to load today’s reading, or choose a lesson from the dropdown above.</p>
           </article>
         </div>
       </section>
     </main>
+  </div>
+
+  <!-- Bottom-sheet Pomodoro -->
+  <div id="timer-sheet" class="sheet" role="dialog" aria-modal="true" aria-labelledby="focus-timer-title" aria-hidden="true">
+    <div class="grab" aria-hidden="true"></div>
+    <section class="pomodoro" id="pomodoro" aria-labelledby="focus-timer-title">
+      <h2 id="focus-timer-title" style="margin:0 0 4px; font-size:16px; font-weight:800;">Focus Timer</h2>
+      <div class="header" style="display:flex;align-items:center;gap:10px">
+        <svg class="tomato" viewBox="0 0 64 64" aria-hidden="true" style="inline-size:28px;block-size:28px;flex:0 0 auto">
+          <path d="M32 10c5 0 8-4 10-6 2 3 2 7 0 10 8-2 14 3 16 8-4-1-8 0-11 2 9 4 15 13 15 22 0 12-10 18-30 18S2 58 2 46c0-9 6-18 15-22-3-2-7-3-11-2 2-5 8-10 16-8-2-3-2-7 0-10 2 2 5 6 10 6Z" fill="#ef4444"/>
+          <path d="M26 12c3 2 7 2 12 0-2 3-5 5-8 5s-6-2-4-5Z" fill="#16a34a"/>
+        </svg>
+        <div class="time" id="pomodoro-time" aria-live="polite" aria-atomic="true">25:00</div>
+      </div>
+
+      <div class="config" style="display:flex;align-items:center;gap:8px;color:var(--muted);font-size:var(--text-sm)">
+        <label for="pomodoro-duration">Duration (min):</label>
+        <input id="pomodoro-duration" type="number" min="1" max="60" value="25" inputmode="numeric" />
+        <span class="muted">max 60</span>
+      </div>
+
+      <div class="controls" role="group" aria-label="Timer controls">
+        <button class="btn-ghost" id="pomodoro-start">Start</button>
+        <button class="btn-ghost" id="pomodoro-pause">Pause</button>
+        <button class="btn-ghost" id="pomodoro-reset">Reset</button>
+        <button class="btn-ghost" id="pomodoro-finish">Finish</button>
+      </div>
+
+      <div class="muted" id="pomodoro-status" aria-live="polite"></div>
+      <div class="muted" id="study-log"></div>
+    </section>
   </div>
 </body>
 </html>
