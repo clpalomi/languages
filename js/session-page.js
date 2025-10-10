@@ -42,66 +42,63 @@ document.addEventListener("DOMContentLoaded", () => {
     menuBtn?.setAttribute("aria-expanded", String(isOpen));
   };
   menuBtn?.addEventListener("click", () => toggleDrawer());
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") toggleDrawer(false);
-  });
 
   /* ========== Lesson loader */
   const resolveBase = (base) => {
-    // Normalize backslashes and ensure trailing slash
-    const cleaned = String(base || ".").replace(/\\/g, "/");
-    const u = new URL(cleaned, document.baseURI);
+    const u = new URL(base || ".", document.baseURI);
     if (!u.pathname.endsWith("/")) u.pathname += "/";
     return u.href;
   };
 
+  // NEW: try meta.json, then meja.json; meta is optional
+  async function fetchMeta(absBase) {
+    const metaCandidates = ["meta.json", "meja.json"];
+    for (const name of metaCandidates) {
+      try {
+        const res = await fetch(absBase + name, { cache: "no-cache" });
+        if (res.ok) return await res.json();
+        // continue to next candidate
+      } catch {
+        // continue
+      }
+    }
+    return null; // no meta available; that's fine
+  }
+
   async function loadLesson(base) {
     const abs = resolveBase(base);
-
-    // Try meta.json, then fall back to meja.json (common in your PL lessons)
-    const tryMeta = async () => {
-      const metaCandidates = ["meta.json", "meja.json"];
-      for (const file of metaCandidates) {
-        try {
-          const res = await fetch(abs + file, { cache: "no-cache" });
-          if (res.ok) return res.json();
-        } catch {}
-      }
-      return {}; // meta is optional
-    };
-
     const htmlURL = abs + "content.html";
 
     status.textContent = "Loading…";
     try {
-      const [meta, h] = await Promise.all([
-        tryMeta(),
+      const [meta, htmlRes] = await Promise.all([
+        fetchMeta(abs),
         fetch(htmlURL, { cache: "no-cache" }),
       ]);
 
-      if (!h.ok) {
-        status.textContent = "Load failed.";
-        pageEl.innerHTML = `<p style="color:#ef4444">Couldn't load lesson content: <code>${htmlURL}</code> (${h.status} ${h.statusText})</p>`;
+      if (!htmlRes.ok) {
+        status.textContent = `Load failed: ${htmlRes.status} ${htmlRes.statusText} for content.html`;
         return;
       }
 
-      const html = await h.text();
+      const html = await htmlRes.text();
 
-      titleEl.textContent = meta?.title || "Lesson";
+      // Apply meta if present; otherwise use defaults
+      titleEl.textContent = (meta && meta.title) || "Lesson";
       metaEl.textContent = [
-        meta?.level && `Level ${meta.level}`,
+        meta?.language && meta.level && `${meta.language} • ${meta.level}`,
+        !meta?.language && meta?.level && `Level ${meta.level}`,
         meta?.estimated_minutes && `${meta.estimated_minutes} min`,
-        meta?.language && `${meta.language}`,
       ]
         .filter(Boolean)
-        .join(" • ");
+        .join(" • ") || "Loaded from content.html";
+
       pageEl.innerHTML = html;
       status.textContent = "Lesson loaded.";
-      toggleDrawer(false); // auto close
+      toggleDrawer(false); // auto close on success
     } catch (e) {
       console.error(e);
       status.textContent = "Load error. Check console.";
-      pageEl.innerHTML = `<p style="color:#ef4444">Unexpected error while loading from <code>${abs}</code>. See console for details.</p>`;
     }
   }
 
@@ -195,8 +192,13 @@ document.addEventListener("DOMContentLoaded", () => {
     if (ms <= 0) finishAuto();
   };
 
+  const readDur = () => {
+    const n = parseInt(durEl.value, 10);
+    return Math.max(1, Math.min(60, Number.isFinite(n) ? n : 25));
+  };
+
   const doStart = () => {
-    const mins = Math.max(1, Math.min(60, parseInt(durEl.value, 10) || 25));
+    const mins = readDur();
     if (state === "idle" || state === "finished") {
       pausedAccum = 0;
       startTs = Date.now();
@@ -237,7 +239,7 @@ document.addEventListener("DOMContentLoaded", () => {
     state = "idle";
     remainingMs = 0;
     pausedAccum = 0;
-    timeEl.textContent = fmt((parseInt(durEl.value, 10) || 25) * 60_000);
+    timeEl.textContent = fmt(readDur() * 60_000);
     status.textContent = "Ready";
 
     setTomatoVanish(false);
@@ -290,11 +292,11 @@ document.addEventListener("DOMContentLoaded", () => {
   finish?.addEventListener("click", doFinishManual);
 
   // Init time
-  timeEl.textContent = fmt((parseInt(durEl.value, 10) || 25) * 60_000);
+  timeEl.textContent = fmt(readDur() * 60_000);
 
   // Update preview on duration change (idle/finished only)
   durEl?.addEventListener("change", () => {
-    const v = Math.max(1, Math.min(60, parseInt(durEl.value, 10) || 25));
+    const v = readDur();
     durEl.value = String(v);
     if (state === "idle" || state === "finished") {
       timeEl.textContent = fmt(v * 60_000);
@@ -356,11 +358,4 @@ document.addEventListener("DOMContentLoaded", () => {
 
     alert("Signed out. Your study history stays on this device.");
   });
-
-  /* ========== Optional: auto-load first enabled lesson (remove if undesired) ========== */
-  const firstEnabled = lessons.find((b) => !b.disabled && b.hasAttribute("data-base"));
-  if (firstEnabled) {
-    const base = firstEnabled.getAttribute("data-base");
-    if (base) loadLesson(base);
-  }
 });
