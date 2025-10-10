@@ -35,6 +35,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const menuComeback = document.querySelector("#menu-comeback");
   const menuSignout = document.querySelector("#menu-signout");
 
+  const contentEl = document.querySelector("#reader-content");
+
   /* ========== Lessons drawer */
   const toggleDrawer = (open) => {
     const isOpen = open ?? !drawer.classList.contains("open");
@@ -125,22 +127,23 @@ function TranslationToggle() {
 }
 
   /* ========= Lesson renderer ========= */
-function renderLessonJSON(json, mounts) {
+function renderLessonJSON(json) {
   const { title, meta, pairs } = json;
-  if (mounts.title) mounts.title.textContent = title || "";
-  if (mounts.meta)  mounts.meta.textContent  = `${meta?.language ?? ""} • Level ${meta?.level ?? ""}`.trim();
 
-  // Build parallel text
+  if (titleEl) titleEl.textContent = title || "";
+  if (metaEl)  metaEl.textContent  = (meta?.language && meta?.level)
+    ? `${meta.language} • Level ${meta.level}`
+    : (meta?.language || meta?.level || "");
+
+  // Build lesson body
   const wrap = document.createElement("div");
   wrap.className = "lesson-parallel";
 
-  // Controls
   const controls = document.createElement("div");
   controls.className = "lesson-controls";
   controls.appendChild(TranslationToggle());
   wrap.appendChild(controls);
 
-  // Content
   const plBlock = document.createElement("div");
   const enBlock = document.createElement("div");
   plBlock.className = "lesson-block pl";
@@ -151,18 +154,18 @@ function renderLessonJSON(json, mounts) {
 
   plP.innerHTML = pairs.map(x => x.pl).join("<br>");
   enP.innerHTML = pairs.map(x => x.en).join("<br>");
-  enP.setAttribute("data-translation", ""); // toggle target
+  enP.setAttribute("data-translation", "");
   enP.style.display = "none";
 
   plBlock.appendChild(plP);
   enBlock.appendChild(enP);
-
   wrap.appendChild(plBlock);
   wrap.appendChild(enBlock);
 
-  if (mounts.page) {
-    mounts.page.innerHTML = ""; // clear previous
-    mounts.page.appendChild(wrap);
+  // << This is the bit you were asking about >>
+  if (contentEl) {
+    contentEl.innerHTML = "";      // clear only the body, keep heading/meta
+    contentEl.appendChild(wrap);   // inject the lesson markup
   }
 }
 
