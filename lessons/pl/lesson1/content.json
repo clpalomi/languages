@@ -1,0 +1,14 @@
+{
+  "title": "Lekcja 1 — Czytanie",
+  "meta": { "language": "Polish", "level": "A1", "slug": "dzien-ani" },
+  "pairs": [
+    { "pl": "„Dzień Ani”" , "en": "Ania’s Day" },
+    { "pl": "Ania wstaje o siódmej rano.", "en": "Ania gets up at seven in the morning." },
+    { "pl": "Myje zęby i je śniadanie.", "en": "She brushes her teeth and eats breakfast." },
+    { "pl": "Potem idzie do szkoły.", "en": "Then she goes to school." },
+    { "pl": "W szkole uczy się matematyki i angielskiego.", "en": "At school, she learns math and English." },
+    { "pl": "Po szkole spotyka się z koleżanką.", "en": "After school, she meets with her friend." },
+    { "pl": "Wieczorem czyta książkę i pije herbatę.", "en": "In the evening, she reads a book and drinks tea." },
+    { "pl": "O dziesiątej idzie spać.", "en": "At ten o’clock, she goes to sleep." }
+  ]
+}
