@@ -95,42 +95,93 @@ document.addEventListener("DOMContentLoaded", () => {
     return null; // no meta available; that's fine
   }
 
-  async function loadLesson(base) {
-    const abs = resolveBase(base);
-    const htmlURL = abs + "content.html";
+async function loadLessonData(basePath) {
+  // Try JSON first
+  try {
+    const res = await fetch(`${basePath}/content.json`, { cache: "no-store" });
+    if (res.ok) {
+      const json = await res.json();
+      return { type: "json", data: json };
+    }
+  } catch {}
+  throw new Error("No lesson content found (json/html/txt).");
+}
 
-    status.textContent = "Loading…";
-    try {
-      const [meta, htmlRes] = await Promise.all([
-        fetchMeta(abs),
-        fetch(htmlURL, { cache: "no-cache" }),
-      ]);
+  /* ========= Translation toggle component ========= */
+function TranslationToggle() {
+  let visible = false;
+  const btn = document.createElement("button");
+  btn.className = "btn btn-ghost";
+  btn.type = "button";
+  btn.textContent = "Show Translation";
+  btn.addEventListener("click", () => {
+    visible = !visible;
+    document.querySelectorAll("[data-translation]").forEach(el => {
+      el.style.display = visible ? "" : "none";
+    });
+    btn.textContent = visible ? "Hide Translation" : "Show Translation";
+  });
+  return btn;
+}
 
-      if (!htmlRes.ok) {
-        status.textContent = `Load failed: ${htmlRes.status} ${htmlRes.statusText} for content.html`;
-        return;
-      }
+  /* ========= Lesson renderer ========= */
+function renderLessonJSON(json, mounts) {
+  const { title, meta, pairs } = json;
+  if (mounts.title) mounts.title.textContent = title || "";
+  if (mounts.meta)  mounts.meta.textContent  = `${meta?.language ?? ""} • Level ${meta?.level ?? ""}`.trim();
 
-      const html = await htmlRes.text();
+  // Build parallel text
+  const wrap = document.createElement("div");
+  wrap.className = "lesson-parallel";
 
-      // Apply meta if present; otherwise use defaults
-      titleEl.textContent = (meta && meta.title) || "Lesson";
-      metaEl.textContent = [
-        meta?.language && meta.level && `${meta.language} • ${meta.level}`,
-        !meta?.language && meta?.level && `Level ${meta.level}`,
-        meta?.estimated_minutes && `${meta.estimated_minutes} min`,
-      ]
-        .filter(Boolean)
-        .join(" • ") || "Loaded from content.html";
+  // Controls
+  const controls = document.createElement("div");
+  controls.className = "lesson-controls";
+  controls.appendChild(TranslationToggle());
+  wrap.appendChild(controls);
 
-      pageEl.innerHTML = html;
-      status.textContent = "Lesson loaded.";
-      toggleDrawer(false); // auto close on success
-    } catch (e) {
-      console.error(e);
-      status.textContent = "Load error. Check console.";
+  // Content
+  const plBlock = document.createElement("div");
+  const enBlock = document.createElement("div");
+  plBlock.className = "lesson-block pl";
+  enBlock.className = "lesson-block en";
+
+  const plP = document.createElement("p");
+  const enP = document.createElement("p");
+
+  plP.innerHTML = pairs.map(x => x.pl).join("<br>");
+  enP.innerHTML = pairs.map(x => x.en).join("<br>");
+  enP.setAttribute("data-translation", ""); // toggle target
+  enP.style.display = "none";
+
+  plBlock.appendChild(plP);
+  enBlock.appendChild(enP);
+
+  wrap.appendChild(plBlock);
+  wrap.appendChild(enBlock);
+
+  if (mounts.page) {
+    mounts.page.innerHTML = ""; // clear previous
+    mounts.page.appendChild(wrap);
+  }
+}
+
+function renderLessonHTML(html, mounts) {
+  // Use title/meta if present in HTML (best-effort)
+  if (mounts.page) {
+    mounts.page.innerHTML = html;
+
+    // Inject a single toggle button above any translation block you tag with data-translation
+    const translation = mounts.page.querySelector("#translation, [data-translation]");
+    if (translation) {
+      translation.style.display = "none";
+      translation.setAttribute("data-translation", "");
+      const btn = TranslationToggle();
+      mounts.page.prepend(btn);
     }
   }
+}
+
 
   lessons.forEach((btn) => {
     if (btn.disabled) return;
