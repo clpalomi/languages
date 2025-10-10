@@ -40,7 +40,37 @@ document.addEventListener("DOMContentLoaded", () => {
     const isOpen = open ?? !drawer.classList.contains("open");
     drawer.classList.toggle("open", isOpen);
     menuBtn?.setAttribute("aria-expanded", String(isOpen));
+
+    // ▼ NEW: position drawer under the hamburger (desktop only)
+    if (isOpen && window.matchMedia("(min-width: 480px)").matches) {
+      const r = menuBtn.getBoundingClientRect();
+      const top = Math.round(r.bottom + window.scrollY);
+      const left = Math.round(r.left + window.scrollX);
+
+      // Inline styles override CSS only when open on desktop
+      Object.assign(drawer.style, {
+        position: "fixed",
+        top: `${top}px`,
+        left: `${left}px`,
+        maxWidth: "90vw",
+        minWidth: "220px",
+        zIndex: 1000
+      });
+    } else {
+      // reset to CSS defaults (mobile or closed)
+      drawer.style.position = "";
+      drawer.style.top = "";
+      drawer.style.left = "";
+      drawer.style.maxWidth = "";
+      drawer.style.minWidth = "";
+      drawer.style.zIndex = "";
+    }
   };
+
+  window.addEventListener("resize", () => {
+    if (drawer.classList.contains("open")) toggleDrawer(true);
+  });
+  
   menuBtn?.addEventListener("click", () => toggleDrawer());
 
   /* ========== Lesson loader */
