@@ -23,6 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const sheet     = document.querySelector('#tomato-sheet');
 
   const timeEl = document.querySelector('#time');
+  const setClockVanish = (on) => timeEl?.classList.toggle('vanish', !!on);
   const durEl  = document.querySelector('#dur');
   const start  = document.querySelector('#start');
   const pause  = document.querySelector('#pause');
