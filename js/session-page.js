@@ -42,36 +42,56 @@ document.addEventListener("DOMContentLoaded", () => {
     menuBtn?.setAttribute("aria-expanded", String(isOpen));
   };
   menuBtn?.addEventListener("click", () => toggleDrawer());
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") toggleDrawer(false);
+  });
 
   /* ========== Lesson loader */
   const resolveBase = (base) => {
-    const u = new URL(base || ".", document.baseURI);
+    // Normalize backslashes and ensure trailing slash
+    const cleaned = String(base || ".").replace(/\\/g, "/");
+    const u = new URL(cleaned, document.baseURI);
     if (!u.pathname.endsWith("/")) u.pathname += "/";
     return u.href;
   };
 
   async function loadLesson(base) {
     const abs = resolveBase(base);
-    const metaURL = abs + "meta.json"; // change to 'meja.json' if needed
+
+    // Try meta.json, then fall back to meja.json (common in your PL lessons)
+    const tryMeta = async () => {
+      const metaCandidates = ["meta.json", "meja.json"];
+      for (const file of metaCandidates) {
+        try {
+          const res = await fetch(abs + file, { cache: "no-cache" });
+          if (res.ok) return res.json();
+        } catch {}
+      }
+      return {}; // meta is optional
+    };
+
     const htmlURL = abs + "content.html";
 
     status.textContent = "Loading…";
     try {
-      const [m, h] = await Promise.all([
-        fetch(metaURL, { cache: "no-cache" }),
+      const [meta, h] = await Promise.all([
+        tryMeta(),
         fetch(htmlURL, { cache: "no-cache" }),
       ]);
-      if (!m.ok || !h.ok) {
+
+      if (!h.ok) {
         status.textContent = "Load failed.";
+        pageEl.innerHTML = `<p style="color:#ef4444">Couldn't load lesson content: <code>${htmlURL}</code> (${h.status} ${h.statusText})</p>`;
         return;
       }
-      const meta = await m.json().catch(() => ({}));
+
       const html = await h.text();
 
       titleEl.textContent = meta?.title || "Lesson";
       metaEl.textContent = [
         meta?.level && `Level ${meta.level}`,
         meta?.estimated_minutes && `${meta.estimated_minutes} min`,
+        meta?.language && `${meta.language}`,
       ]
         .filter(Boolean)
         .join(" • ");
@@ -81,6 +101,7 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (e) {
       console.error(e);
       status.textContent = "Load error. Check console.";
+      pageEl.innerHTML = `<p style="color:#ef4444">Unexpected error while loading from <code>${abs}</code>. See console for details.</p>`;
     }
   }
 
@@ -335,4 +356,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
     alert("Signed out. Your study history stays on this device.");
   });
+
+  /* ========== Optional: auto-load first enabled lesson (remove if undesired) ========== */
+  const firstEnabled = lessons.find((b) => !b.disabled && b.hasAttribute("data-base"));
+  if (firstEnabled) {
+    const base = firstEnabled.getAttribute("data-base");
+    if (base) loadLesson(base);
+  }
 });
