@@ -80,9 +80,9 @@ document.addEventListener("DOMContentLoaded", () => {
     return u.href;
   };
 
-  // NEW: try meta.json, then meja.json; meta is optional
+  // NEW: try meta.json; meta is optional
   async function fetchMeta(absBase) {
-    const metaCandidates = ["meta.json", "meja.json"];
+    const metaCandidates = ["meta.json"];
     for (const name of metaCandidates) {
       try {
         const res = await fetch(absBase + name, { cache: "no-cache" });
