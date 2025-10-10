@@ -4,41 +4,16 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
 <title>Study Session</title>
-<style>  
+<style>
   /* ===== Minimal tokens ===== */
   :root{
     --fg:#111; --muted:#6b7280; --bg:#fff; --border:#e5e7eb;
     --brand:#6d28d9; --brand-2:#7c3aed; --accent:#22c55e; --danger:#ef4444;
-    --tap:48px; --r:14px; --space:16px; --measure: 72ch;
+    --tap:48px; --r:14px; --measure:72ch;
   }
   @media (prefers-color-scheme: dark){
     :root{ --fg:#e5e7eb; --muted:#9aa3b2; --bg:#0b0e14; --border:#262b36; }
   }
-
-  /* Drawer base */
-.drawer{
-  display:none;
-  border-bottom:1px solid var(--border);
-  background:var(--bg);
-  z-index: 100;              /* <- ensure above header and content */
-  position: static;          /* mobile-first: full width below header */
-}
-.drawer.open{ display:block; }
-  
-/* Compact popover on wider screens */
-@media (min-width: 480px){
-  .hdr{ position: relative; z-index: 101; }   /* header sits above page */
-  .drawer{
-    position:absolute; top:100%; left:0;
-    border:1px solid var(--border); border-top:none;
-    border-radius: 0 0 var(--r) var(--r);
-    box-shadow: 0 14px 40px rgba(0,0,0,.12);
-    padding: 8px 10px 10px;
-    inline-size: max-content;  /* hug content (compact) */
-    max-inline-size: 90vw;
-    min-inline-size: 220px;
-  }
-}
 
   /* ===== Base ===== */
   *,*::before,*::after{ box-sizing:border-box }
@@ -47,7 +22,7 @@
     margin:0; font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
     color:var(--fg); background:var(--bg);
   }
-  .shell{ max-width: 1100px; margin:0 auto; padding: clamp(10px, 2vw, 18px); }
+  .shell{ max-width:1100px; margin:0 auto; padding: clamp(10px, 2vw, 18px); }
 
   /* ===== Header (minimal) ===== */
   .hdr{
@@ -71,13 +46,24 @@
   .hamburger .bars::before{ top:0 }
   .hamburger .bars::after{ bottom:0 }
 
-  /* ===== Lessons drawer (top unfold) ===== */
-  /* Drawer: mobile = full width; ≥480px = compact popover under the header, wraps to content */
+  /* ===== Lessons drawer (mobile-first full width; compact on wider screens) ===== */
   .drawer{
     display:none; border-bottom:1px solid var(--border); background:var(--bg);
+    position: static; z-index:100;
   }
   .drawer.open{ display:block; }
-  .lessons{ display:grid; gap:6px; padding: 6px 0; }
+  @media (min-width:480px){
+    .hdr{ position:relative; z-index:101; }
+    .drawer{
+      position:absolute; top:100%; left:0;
+      border:1px solid var(--border); border-top:none;
+      border-radius:0 0 var(--r) var(--r);
+      box-shadow:0 14px 40px rgba(0,0,0,.12);
+      padding:8px 10px 10px;
+      inline-size:max-content; max-inline-size:90vw; min-inline-size:220px;
+    }
+  }
+  .lessons{ display:grid; gap:6px; padding:6px 0; }
   .lesson{
     min-height: calc(var(--tap) - 8px);
     padding: 0 10px;
@@ -85,31 +71,30 @@
     border-radius:10px;
     background:transparent; color:var(--fg);
     text-align:left; font-weight:700; cursor:pointer;
-    white-space:nowrap; /* do not stretch text across full width */
+    white-space:nowrap;
   }
   .lesson[disabled]{ opacity:.6; cursor:not-allowed }
   .badge{ font-size:12px; color:var(--muted); margin-left:8px }
   .sep{ border:none; border-top:1px solid var(--border); margin:6px 0; }
 
-  /* Auth actions styled like small links */
+  /* Drawer actions */
   .menu-action{
     min-height: calc(var(--tap) - 12px);
     padding: 0 8px;
     border:0; background:transparent; color:var(--fg);
     text-align:left; font-weight:700; cursor:pointer;
   }
-  
 
-  /* ===== Reader (centered page like the reference) ===== */
+  /* ===== Reader (clean page) ===== */
   .reader{ padding: clamp(10px, 3vw, 24px) 0; }
   .page{
-    max-width: min(100%, var(--measure));
-    margin: 0 auto;
-    background:#fff0; /* transparent to keep it ultra clean */
+    max-width:min(100%, var(--measure));
+    margin:0 auto;
+    background:#fff0; /* ultra clean */
     color:var(--fg); font-family: Georgia, "Times New Roman", serif;
     line-height:1.7; font-size: clamp(17px, 1.9vw, 19px);
   }
-  .page h3{ margin: 0 0 6px; font-weight:700; letter-spacing:-.01em }
+  .page h3{ margin:0 0 6px; font-weight:700; letter-spacing:-.01em }
   .meta{ color:var(--muted); font-size:12px; margin:0 0 12px }
   .page p{ margin:0 0 14px; text-align:justify; hyphens:auto }
 
@@ -120,17 +105,16 @@
     z-index: 30;
   }
   .tomato svg{ display:block; inline-size:100%; block-size:100%; filter: drop-shadow(0 8px 16px rgba(0,0,0,.2)); }
-  /* vanish when running */
   .tomato.vanish{ opacity:0; transition: opacity .18s ease; }
-  /* show on hover (desktop) */
   .tomato.vanish:hover{ opacity:1; }
-  /* invisible hotspot to recover on mobile—still clickable even when invisible */
+
+  /* Invisible hotspot to recover on mobile—still clickable even when invisible */
   .tomato-hotspot{
     position: fixed; right: clamp(6px, 3vw, 18px); bottom: clamp(8px, 3vw, 18px);
     inline-size: 72px; block-size: 72px; z-index: 29; background: transparent;
   }
 
-  /* Tomato sheet (minimal popover) */
+  /* Tomato sheet (controls) */
   .sheet{
     position: fixed; right: clamp(10px, 3vw, 22px); bottom: calc(clamp(12px, 3vw, 22px) + 72px);
     background: var(--bg); border:1px solid var(--border); border-radius: var(--r); padding:12px;
@@ -138,6 +122,18 @@
     opacity:0; transform: translateY(6px); pointer-events:none; transition: opacity .18s, transform .18s;
   }
   .sheet.open{ opacity:1; transform:none; pointer-events:auto }
+
+  /* NEW: Vanish the entire pomodoro box while running; reveal on hover/focus */
+  .sheet.vanish{
+    opacity:0; transform: translateY(6px);
+    pointer-events:auto; /* allow hover to revive it */
+    transition: opacity .18s, transform .18s;
+  }
+  .sheet.vanish:hover,
+  .sheet.vanish:focus-within{
+    opacity:1; transform:none;
+  }
+
   .row{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
   .time{ font-weight:800; letter-spacing:.03em; font-variant-numeric: tabular-nums; }
   input[type="number"]{
@@ -152,18 +148,6 @@
   .btn.danger{ border-color:transparent; background:linear-gradient(180deg, #f87171, var(--danger)); color:#fff; }
   .muted{ color:var(--muted); font-size:12px }
 
-  .auth-actions{ display:flex; gap:8px; }
-  .btn-link{
-    background:transparent; border:0; color:var(--fg); cursor:pointer;
-    padding:6px 8px; border-radius:8px; font-weight:700;
-  }
-  .btn-link:focus-visible{ outline:2px solid var(--brand) }
-
-  /* Clock vanish while running; reappear on hover/focus */
-  .time.vanish{ opacity:0 !important; transition: opacity .18s ease; }
-  .sheet:hover .time,
-  .sheet:focus-within .time{ opacity:1 !important; }
-  
   /* Accessibility */
   .sr-only{ position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden; }
   @media (pointer:coarse){ .lesson, .btn, input[type="number"]{ min-height:52px } }
@@ -178,7 +162,7 @@
       <button id="menu-btn" class="hamburger" aria-expanded="false" aria-controls="lesson-drawer" aria-label="Open lessons">
         <span class="bars"><span class="bar"></span></span>
       </button>
-      <div class="brand">Study session</div>
+      <div class="brand">Study Session</div>
       <div></div>
     </header>
 
@@ -190,7 +174,7 @@
         </button>
         <button class="lesson" disabled>Lesson 2 (locked)</button>
         <button class="lesson" disabled>Lesson 3 (locked)</button>
-        <!-- ADD THESE: compact auth actions inside the menu -->
+
         <hr class="sep">
         <button class="menu-action" id="menu-comeback">Come back</button>
         <button class="menu-action" id="menu-signout">Sign out</button>
