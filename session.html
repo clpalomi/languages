@@ -15,6 +15,18 @@
     :root{ --fg:#e5e7eb; --muted:#9aa3b2; --bg:#0b0e14; --border:#262b36; }
   }
 
+  @media (min-width: 480px){
+  .hdr{ position: relative; }
+  .drawer{
+    position:absolute; top:100%; left:0;
+    border:1px solid var(--border); border-top:none; border-radius: 0 0 var(--r) var(--r);
+    box-shadow: 0 14px 40px rgba(0,0,0,.12);
+    padding: 8px 10px 10px;
+    /* make the panel itself compact */
+    inline-size: max-content; max-inline-size: 90vw; min-inline-size: 220px;
+    }
+  }
+
   /* ===== Base ===== */
   *,*::before,*::after{ box-sizing:border-box }
   html,body{ height:100% }
@@ -47,19 +59,33 @@
   .hamburger .bars::after{ bottom:0 }
 
   /* ===== Lessons drawer (top unfold) ===== */
+  /* Drawer: mobile = full width; ≥480px = compact popover under the header, wraps to content */
   .drawer{
     display:none; border-bottom:1px solid var(--border); background:var(--bg);
   }
   .drawer.open{ display:block; }
-  .lessons{
-    display:grid; gap:8px; padding: 10px 0 14px;
-  }
+  .lessons{ display:grid; gap:6px; padding: 6px 0; }
   .lesson{
-    min-height: var(--tap); padding:0 12px; border:1px solid var(--border); border-radius:10px;
-    background:transparent; color:var(--fg); text-align:left; font-weight:700; cursor:pointer;
+    min-height: calc(var(--tap) - 8px);
+    padding: 0 10px;
+    border:1px solid var(--border);
+    border-radius:10px;
+    background:transparent; color:var(--fg);
+    text-align:left; font-weight:700; cursor:pointer;
+    white-space:nowrap; /* do not stretch text across full width */
   }
   .lesson[disabled]{ opacity:.6; cursor:not-allowed }
   .badge{ font-size:12px; color:var(--muted); margin-left:8px }
+  .sep{ border:none; border-top:1px solid var(--border); margin:6px 0; }
+
+  /* Auth actions styled like small links */
+  .menu-action{
+    min-height: calc(var(--tap) - 12px);
+    padding: 0 8px;
+    border:0; background:transparent; color:var(--fg);
+    text-align:left; font-weight:700; cursor:pointer;
+  }
+  
 
   /* ===== Reader (centered page like the reference) ===== */
   .reader{ padding: clamp(10px, 3vw, 24px) 0; }
@@ -121,10 +147,10 @@
   .btn-link:focus-visible{ outline:2px solid var(--brand) }
 
   /* Clock vanish while running; reappear on hover/focus */
-  .time.vanish{ opacity:0; transition:opacity .18s ease; }
+  .time.vanish{ opacity:0 !important; transition: opacity .18s ease; }
   .sheet:hover .time,
-  .sheet:focus-within .time{ opacity:1; }
-
+  .sheet:focus-within .time{ opacity:1 !important; }
+  
   /* Accessibility */
   .sr-only{ position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden; }
   @media (pointer:coarse){ .lesson, .btn, input[type="number"]{ min-height:52px } }
@@ -140,11 +166,6 @@
         <span class="bars"><span class="bar"></span></span>
       </button>
       <div class="brand">Study session</div>
-
-      <div class="auth-actions">
-        <button id="comeback" class="btn-link" type="button" title="Come back">Come back to lessons</button>
-        <button id="signout" class="btn-link" type="button" title="Sign out">Sign out</button>
-      </div>
       <div></div>
     </header>
 
@@ -156,6 +177,10 @@
         </button>
         <button class="lesson" disabled>Lesson 2 (locked)</button>
         <button class="lesson" disabled>Lesson 3 (locked)</button>
+        <!-- ADD THESE: compact auth actions inside the menu -->
+        <hr class="sep">
+        <button class="menu-action" id="menu-comeback">Come back</button>
+        <button class="menu-action" id="menu-signout">Sign out</button>
       </div>
     </nav>
 
