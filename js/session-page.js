@@ -1,3 +1,9 @@
+// Safe defaults so missing config never throws
+window.APP_CONFIG = Object.assign({
+  COMEBACK_URL: "",   // leave empty to stay on page
+}, window.APP_CONFIG || {});
+
+
 // Minimal session logic: lessons drawer + floating tomato timer + lesson loader
 document.addEventListener('DOMContentLoaded', () => {
 
@@ -227,10 +233,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
   /* ========== Menu navigation for Sign out / Come back ========== */
   menuComeback?.addEventListener('click', () => {
+    // local "resume"
     localStorage.removeItem('signed_out');
     document.body.classList.remove('signed-out');
-    drawer.classList.remove('open');
-    alert('Welcome back!');
+    document.querySelector('#lesson-drawer')?.classList.remove('open');
+
+    // optional navigate only if you set a URL
+    const url = window.APP_CONFIG.COMEBACK_URL;
+    if (url) window.location.href = url;
   });
 
 
