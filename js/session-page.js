@@ -1,6 +1,9 @@
 // Minimal session logic: lessons drawer + floating tomato timer + lesson loader
 document.addEventListener('DOMContentLoaded', () => {
 
+  /* ========= CONFIG: set your destinations here ========= */
+  const COMEBACK_URL = '/https://clpalomi.github.io/languages/app.html';
+
   /* ========== Elements */
   const menuBtn   = document.querySelector('#menu-btn');
   const drawer    = document.querySelector('#lesson-drawer');
@@ -22,9 +25,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const status = document.querySelector('#status');
   const totalEl= document.querySelector('#total');
 
-  // Auth buttons
-  const signoutBtn = document.querySelector('#signout');
-  const comebackBtn= document.querySelector('#comeback');
+  // Menu auth actions (inside drawer)
+  const menuComeback = document.querySelector('#menu-comeback');
+  const menuSignout  = document.querySelector('#menu-signout');
 
   /* ========== Lessons drawer */
   const toggleDrawer = (open) => {
@@ -43,7 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function loadLesson(base){
     const abs = resolveBase(base);
-    const metaURL = abs + 'meta.json';      // change to 'meja.json' if that's your filename
+    const metaURL = abs + 'meta.json';      // change to 'meja.json' if needed
     const htmlURL = abs + 'content.html';
 
     status.textContent = 'Loading…';
@@ -117,10 +120,9 @@ document.addEventListener('DOMContentLoaded', () => {
   hotspot.addEventListener('click', () => openSheet(true));
   document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') openSheet(false); });
 
-  // vanish tomato while running (button already fades)
+  // vanish helpers
   const setTomatoVanish = (on) => tomatoBtn.classList.toggle('vanish', !!on);
-  // NEW: vanish the clock text while running; still updates in the background
-  const setClockVanish = (on) => timeEl.classList.toggle('vanish', !!on);
+  const setClockVanish  = (on) => timeEl.classList.toggle('vanish', !!on);
 
   // Beep
   const beep = (dur=220, freq=880, type='triangle') => {
@@ -133,7 +135,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const renderTick = () => {
     const ms = Math.max(0, endTs - Date.now());
-    // Still updates internally even when invisible:
+    // still updates even if invisible
     timeEl.textContent = fmt(ms);
     if (ms <= 0) finishAuto();
   };
@@ -147,8 +149,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     clearInterval(tick); tick = setInterval(renderTick, 250);
     state='running'; status.textContent='Running…';
-    setTomatoVanish(true);   // hide tomato button
-    setClockVanish(true);    // hide the clock text
+    setTomatoVanish(true);
+    setClockVanish(true);  // << make clock vanish while running
     renderTick();
   };
 
@@ -157,7 +159,7 @@ document.addEventListener('DOMContentLoaded', () => {
     clearInterval(tick); remainingMs = Math.max(0, endTs - Date.now()); lastPauseTs = Date.now();
     state='paused'; status.textContent='Paused';
     setTomatoVanish(false);
-    setClockVanish(false);
+    setClockVanish(false); // show clock when paused
   };
 
   const doReset = () => {
@@ -171,7 +173,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const persistMinutes = (mins) => {
     if (mins > 0) {
       setTotal(getTotal() + mins);
-      addSession(mins);           // <-- per-session log
+      addSession(mins);   // per-session record
       renderTotal();
     }
   };
@@ -183,7 +185,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const elapsed = state==='paused' ? Math.max(0, (lastPauseTs - startTs) - pausedAccum)
                                      : Math.max(0, (now - startTs) - pausedAccum);
     const mins = Math.max(0, Math.round(elapsed/60000));
-    persistMinutes(mins);         // <-- auto save on Finish
+    persistMinutes(mins); // auto save
     state='finished'; status.textContent=`Finished +${mins} min`;
     setTomatoVanish(false);
     setClockVanish(false);
@@ -193,7 +195,7 @@ document.addEventListener('DOMContentLoaded', () => {
     clearInterval(tick); state='finished';
     const planned = Math.max(0, endTs - startTs);
     const mins = Math.max(0, Math.round(Math.max(0, planned - pausedAccum)/60000));
-    persistMinutes(mins);         // <-- auto save on auto-finish too
+    persistMinutes(mins); // auto save
     timeEl.textContent='00:00'; status.textContent=`Pomodoro complete +${mins} min`;
     setTomatoVanish(false);
     setClockVanish(false);
@@ -209,7 +211,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Init time
   timeEl.textContent = fmt((parseInt(durEl.value,10)||25)*60_000);
 
-  // Update time preview when duration changes (only idle/finished)
+  // Update preview on duration change (idle/finished only)
   durEl.addEventListener('change', ()=>{
     const v = Math.max(1, Math.min(60, parseInt(durEl.value,10)||25));
     durEl.value = String(v);
@@ -223,27 +225,45 @@ document.addEventListener('DOMContentLoaded', () => {
     if (document.hidden) doPause();
   });
 
-  /* ========== Sign out / Come back (simple client-side stub) */
-  const setSignedOutUI = (out) => {
-    document.body.classList.toggle('signed-out', !!out);
-    // optionally disable interactions when signed out:
-    drawer.classList.toggle('open', false);
-    sheet.classList.toggle('open', false);
-    status.textContent = out ? 'Signed out' : 'Ready';
-  };
-
-  signoutBtn?.addEventListener('click', () => {
-    localStorage.setItem('signed_out', '1');
-    setSignedOutUI(true);
-    alert('You have signed out. Study data is kept locally.');
-  });
-
-  comebackBtn?.addEventListener('click', () => {
+  /* ========== Menu navigation for Sign out / Come back ========== */
+  menuComeback?.addEventListener('click', () => {
     localStorage.removeItem('signed_out');
-    setSignedOutUI(false);
+    document.body.classList.remove('signed-out');
+    drawer.classList.remove('open');
     alert('Welcome back!');
   });
 
-  // Restore sign-out state on load
-  if (localStorage.getItem('signed_out') === '1') setSignedOutUI(true);
+
+// --- Sign out WITHOUT redirect ---
+menuSignout?.addEventListener('click', async () => {
+  try {
+    // If you use a provider, sign out there (keeps it harmless if not present):
+    if (window.supabase?.auth?.signOut) {
+      await window.supabase.auth.signOut();
+    } else if (window.firebase?.auth) {
+      await window.firebase.auth().signOut();
+    } else if (window.auth?.signOut) {
+      await window.auth.signOut(); // your custom auth module, if any
+    }
+  } catch (e) {
+    console.error('Provider signOut failed (continuing local sign out):', e);
+  }
+
+  // Local sign-out state (keeps study data)
+  localStorage.setItem('signed_out', '1');
+  // Optional: clear any app-specific session keys (but NOT study minutes/sessions)
+  // localStorage.removeItem('auth_user');
+  // localStorage.removeItem('session_token');
+
+  // Collapse menus / sheets and reflect UI state
+  drawer.classList.remove('open');
+  document.querySelector('#tomato-sheet')?.classList.remove('open');
+
+  // Visually mark signed-out and disable actions if you want:
+  document.body.classList.add('signed-out');
+
+  // Give quick feedback
+  alert('Signed out. Your study history stays on this device.');
+});
+
 });
