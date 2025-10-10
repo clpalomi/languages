@@ -4,7 +4,7 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
 <title>Study Session</title>
-<style>
+<style>  
   /* ===== Minimal tokens ===== */
   :root{
     --fg:#111; --muted:#6b7280; --bg:#fff; --border:#e5e7eb;
@@ -15,17 +15,30 @@
     :root{ --fg:#e5e7eb; --muted:#9aa3b2; --bg:#0b0e14; --border:#262b36; }
   }
 
-  @media (min-width: 480px){
-  .hdr{ position: relative; }
+  /* Drawer base */
+.drawer{
+  display:none;
+  border-bottom:1px solid var(--border);
+  background:var(--bg);
+  z-index: 100;              /* <- ensure above header and content */
+  position: static;          /* mobile-first: full width below header */
+}
+.drawer.open{ display:block; }
+  
+/* Compact popover on wider screens */
+@media (min-width: 480px){
+  .hdr{ position: relative; z-index: 101; }   /* header sits above page */
   .drawer{
     position:absolute; top:100%; left:0;
-    border:1px solid var(--border); border-top:none; border-radius: 0 0 var(--r) var(--r);
+    border:1px solid var(--border); border-top:none;
+    border-radius: 0 0 var(--r) var(--r);
     box-shadow: 0 14px 40px rgba(0,0,0,.12);
     padding: 8px 10px 10px;
-    /* make the panel itself compact */
-    inline-size: max-content; max-inline-size: 90vw; min-inline-size: 220px;
-    }
+    inline-size: max-content;  /* hug content (compact) */
+    max-inline-size: 90vw;
+    min-inline-size: 220px;
   }
+}
 
   /* ===== Base ===== */
   *,*::before,*::after{ box-sizing:border-box }
