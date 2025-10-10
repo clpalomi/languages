@@ -18,6 +18,20 @@ document.addEventListener("DOMContentLoaded", () => {
   const titleEl = document.querySelector("#reader-heading");
   const metaEl = document.querySelector("#reader-meta");
 
+  let contentEl = document.querySelector("#reader-content");
+  if (!contentEl && pageEl) {
+  contentEl = document.createElement("div");
+  contentEl.id = "reader-content";
+
+  if (metaEl && metaEl.parentElement === pageEl) {
+    // insert right after meta
+    metaEl.insertAdjacentElement("afterend", contentEl);
+  } else {
+    // fallback: append to the page
+    pageEl.appendChild(contentEl);
+  }
+  }
+
   const tomatoBtn = document.querySelector("#tomato");
   const hotspot = document.querySelector("#tomato-hotspot");
   const sheet = document.querySelector("#tomato-sheet");
@@ -162,11 +176,15 @@ function renderLessonJSON(json) {
   wrap.appendChild(plBlock);
   wrap.appendChild(enBlock);
 
-  // << This is the bit you were asking about >>
   if (contentEl) {
     contentEl.innerHTML = "";      // clear only the body, keep heading/meta
     contentEl.appendChild(wrap);   // inject the lesson markup
   }
+
+  if (!contentEl) return console.error("#reader-content missing and could not be created");
+  contentEl.innerHTML = "";
+  contentEl.appendChild(wrap);
+  
 }
 
 function renderLessonHTML(html, mounts) {
