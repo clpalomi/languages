@@ -113,6 +113,18 @@
   .btn.danger{ border-color:transparent; background:linear-gradient(180deg, #f87171, var(--danger)); color:#fff; }
   .muted{ color:var(--muted); font-size:12px }
 
+  .auth-actions{ display:flex; gap:8px; }
+  .btn-link{
+    background:transparent; border:0; color:var(--fg); cursor:pointer;
+    padding:6px 8px; border-radius:8px; font-weight:700;
+  }
+  .btn-link:focus-visible{ outline:2px solid var(--brand) }
+
+  /* Clock vanish while running; reappear on hover/focus */
+  .time.vanish{ opacity:0; transition:opacity .18s ease; }
+  .sheet:hover .time,
+  .sheet:focus-within .time{ opacity:1; }
+
   /* Accessibility */
   .sr-only{ position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden; }
   @media (pointer:coarse){ .lesson, .btn, input[type="number"]{ min-height:52px } }
@@ -127,7 +139,12 @@
       <button id="menu-btn" class="hamburger" aria-expanded="false" aria-controls="lesson-drawer" aria-label="Open lessons">
         <span class="bars"><span class="bar"></span></span>
       </button>
-      <div class="brand">Study Session</div>
+      <div class="brand">Study session</div>
+
+      <div class="auth-actions">
+        <button id="comeback" class="btn-link" type="button" title="Come back">Come back to lessons</button>
+        <button id="signout" class="btn-link" type="button" title="Sign out">Sign out</button>
+      </div>
       <div></div>
     </header>
 
