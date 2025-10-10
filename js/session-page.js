@@ -49,8 +49,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const menuComeback = document.querySelector("#menu-comeback");
   const menuSignout = document.querySelector("#menu-signout");
 
-  const contentEl = document.querySelector("#reader-content");
-
   /* ========== Lessons drawer */
   const toggleDrawer = (open) => {
     const isOpen = open ?? !drawer.classList.contains("open");
