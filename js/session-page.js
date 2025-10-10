@@ -22,6 +22,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const status = document.querySelector('#status');
   const totalEl= document.querySelector('#total');
 
+  // Auth buttons
+  const signoutBtn = document.querySelector('#signout');
+  const comebackBtn= document.querySelector('#comeback');
+
   /* ========== Lessons drawer */
   const toggleDrawer = (open) => {
     const isOpen = open ?? !drawer.classList.contains('open');
@@ -39,7 +43,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function loadLesson(base){
     const abs = resolveBase(base);
-    const metaURL = abs + 'meta.json';      // change to 'meja.json' if needed
+    const metaURL = abs + 'meta.json';      // change to 'meja.json' if that's your filename
     const htmlURL = abs + 'content.html';
 
     status.textContent = 'Loading…';
@@ -72,20 +76,34 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  /* ========== Floating tomato timer */
+  /* ========== Storage: total + per-session logs */
   const fmt = (ms) => {
     const s = Math.max(0, Math.round(ms/1000));
     return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
   };
 
-  const getTotal = () => Number(localStorage.getItem('study_minutes_total') || '0');
-  const setTotal = (m) => localStorage.setItem('study_minutes_total', String(m));
+  const TOTAL_KEY = 'study_minutes_total';
+  const SESSIONS_KEY = 'study_sessions'; // array of {ts, minutes}
+
+  const getTotal = () => Number(localStorage.getItem(TOTAL_KEY) || '0');
+  const setTotal = (m) => localStorage.setItem(TOTAL_KEY, String(m));
+  const getSessions = () => {
+    try { return JSON.parse(localStorage.getItem(SESSIONS_KEY) || '[]'); }
+    catch { return []; }
+  };
+  const addSession = (minutes) => {
+    const sessions = getSessions();
+    sessions.push({ ts: new Date().toISOString(), minutes });
+    localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions));
+  };
+
   const renderTotal = () => {
     const t = getTotal();
     totalEl.textContent = t ? `Total studied: ${t} min` : '';
   };
   renderTotal();
 
+  /* ========== Floating tomato timer */
   let state='idle', tick=null, startTs=0, endTs=0, remainingMs=0, pausedAccum=0, lastPauseTs=0;
 
   // open/close small sheet
@@ -99,8 +117,10 @@ document.addEventListener('DOMContentLoaded', () => {
   hotspot.addEventListener('click', () => openSheet(true));
   document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') openSheet(false); });
 
-  // vanish behavior: while running, tomato becomes invisible; shows on hover (CSS)
-  const setVanish = (on) => tomatoBtn.classList.toggle('vanish', !!on);
+  // vanish tomato while running (button already fades)
+  const setTomatoVanish = (on) => tomatoBtn.classList.toggle('vanish', !!on);
+  // NEW: vanish the clock text while running; still updates in the background
+  const setClockVanish = (on) => timeEl.classList.toggle('vanish', !!on);
 
   // Beep
   const beep = (dur=220, freq=880, type='triangle') => {
@@ -113,6 +133,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const renderTick = () => {
     const ms = Math.max(0, endTs - Date.now());
+    // Still updates internally even when invisible:
     timeEl.textContent = fmt(ms);
     if (ms <= 0) finishAuto();
   };
@@ -125,19 +146,34 @@ document.addEventListener('DOMContentLoaded', () => {
       const now = Date.now(); pausedAccum += now - lastPauseTs; endTs = now + remainingMs; startTs = now;
     }
     clearInterval(tick); tick = setInterval(renderTick, 250);
-    state='running'; status.textContent='Running…'; setVanish(true); renderTick();
+    state='running'; status.textContent='Running…';
+    setTomatoVanish(true);   // hide tomato button
+    setClockVanish(true);    // hide the clock text
+    renderTick();
   };
 
   const doPause = () => {
     if (state!=='running') return;
     clearInterval(tick); remainingMs = Math.max(0, endTs - Date.now()); lastPauseTs = Date.now();
-    state='paused'; status.textContent='Paused'; setVanish(false);
+    state='paused'; status.textContent='Paused';
+    setTomatoVanish(false);
+    setClockVanish(false);
   };
 
   const doReset = () => {
     clearInterval(tick); state='idle'; remainingMs=0; pausedAccum=0;
     timeEl.textContent = fmt((parseInt(durEl.value,10)||25)*60_000);
-    status.textContent='Ready'; setVanish(false);
+    status.textContent='Ready';
+    setTomatoVanish(false);
+    setClockVanish(false);
+  };
+
+  const persistMinutes = (mins) => {
+    if (mins > 0) {
+      setTotal(getTotal() + mins);
+      addSession(mins);           // <-- per-session log
+      renderTotal();
+    }
   };
 
   const doFinishManual = () => {
@@ -147,16 +183,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const elapsed = state==='paused' ? Math.max(0, (lastPauseTs - startTs) - pausedAccum)
                                      : Math.max(0, (now - startTs) - pausedAccum);
     const mins = Math.max(0, Math.round(elapsed/60000));
-    if (mins>0) { setTotal(getTotal()+mins); renderTotal(); }
-    state='finished'; status.textContent=`Finished +${mins} min`; setVanish(false);
+    persistMinutes(mins);         // <-- auto save on Finish
+    state='finished'; status.textContent=`Finished +${mins} min`;
+    setTomatoVanish(false);
+    setClockVanish(false);
   };
 
   const finishAuto = () => {
-    clearInterval(tick); state='finished'; setVanish(false);
+    clearInterval(tick); state='finished';
     const planned = Math.max(0, endTs - startTs);
     const mins = Math.max(0, Math.round(Math.max(0, planned - pausedAccum)/60000));
-    if (mins>0) { setTotal(getTotal()+mins); renderTotal(); }
-    timeEl.textContent='00:00'; status.textContent=`Pomodoro complete +${mins} min`; beep();
+    persistMinutes(mins);         // <-- auto save on auto-finish too
+    timeEl.textContent='00:00'; status.textContent=`Pomodoro complete +${mins} min`;
+    setTomatoVanish(false);
+    setClockVanish(false);
+    beep();
   };
 
   // Wire controls
@@ -181,4 +222,28 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) doPause();
   });
+
+  /* ========== Sign out / Come back (simple client-side stub) */
+  const setSignedOutUI = (out) => {
+    document.body.classList.toggle('signed-out', !!out);
+    // optionally disable interactions when signed out:
+    drawer.classList.toggle('open', false);
+    sheet.classList.toggle('open', false);
+    status.textContent = out ? 'Signed out' : 'Ready';
+  };
+
+  signoutBtn?.addEventListener('click', () => {
+    localStorage.setItem('signed_out', '1');
+    setSignedOutUI(true);
+    alert('You have signed out. Study data is kept locally.');
+  });
+
+  comebackBtn?.addEventListener('click', () => {
+    localStorage.removeItem('signed_out');
+    setSignedOutUI(false);
+    alert('Welcome back!');
+  });
+
+  // Restore sign-out state on load
+  if (localStorage.getItem('signed_out') === '1') setSignedOutUI(true);
 });
