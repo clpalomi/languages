@@ -148,6 +148,19 @@
   .btn.danger{ border-color:transparent; background:linear-gradient(180deg, #f87171, var(--danger)); color:#fff; }
   .muted{ color:var(--muted); font-size:12px }
 
+  .btn.btn-ghost{
+    min-height: var(--tap);
+    padding: 0 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--fg);
+    font-weight: 700;
+    cursor: pointer;
+    opacity: .9;
+  }
+  .lesson-controls { margin-block: 8px 16px; }
+
   /* Accessibility */
   .sr-only{ position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden; }
   @media (pointer:coarse){ .lesson, .btn, input[type="number"]{ min-height:52px } }
