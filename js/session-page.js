@@ -43,13 +43,12 @@ document.addEventListener("DOMContentLoaded", () => {
     drawer.classList.toggle("open", isOpen);
     menuBtn?.setAttribute("aria-expanded", String(isOpen));
 
-    // ▼ NEW: position drawer under the hamburger (desktop only)
+    // ▼ position drawer under the hamburger (desktop only)
     if (isOpen && window.matchMedia("(min-width: 480px)").matches) {
       const r = menuBtn.getBoundingClientRect();
       const top = Math.round(r.bottom + window.scrollY);
       const left = Math.round(r.left + window.scrollX);
 
-      // Inline styles override CSS only when open on desktop
       Object.assign(drawer.style, {
         position: "fixed",
         top: `${top}px`,
@@ -59,7 +58,6 @@ document.addEventListener("DOMContentLoaded", () => {
         zIndex: 1000
       });
     } else {
-      // reset to CSS defaults (mobile or closed)
       drawer.style.position = "";
       drawer.style.top = "";
       drawer.style.left = "";
@@ -72,212 +70,178 @@ document.addEventListener("DOMContentLoaded", () => {
   window.addEventListener("resize", () => {
     if (drawer.classList.contains("open")) toggleDrawer(true);
   });
-  
   menuBtn?.addEventListener("click", () => toggleDrawer());
 
-  /* ========== Lesson loader */
+  /* ========== JSON-only lesson loader (UPDATED) ========== */
   const resolveBase = (base) => {
     const u = new URL(base || ".", document.baseURI);
     if (!u.pathname.endsWith("/")) u.pathname += "/";
     return u.href;
   };
 
-  // NEW: try meta.json; meta is optional
-async function fetchMeta(absBase) {
-  const candidates = ["meta.json", "meja.json"];
-  for (const name of candidates) {
-    try {
-      const res = await fetch(absBase + name, { cache: "no-store" });
-      if (res.ok) return await res.json();
-    } catch {}
+  async function fetchJSON(url) {
+    const res = await fetch(url, { cache: "no-store" });
+    if (!res.ok) throw new Error(`${url} (${res.status})`);
+    return res.json();
   }
-  return null;
-}
 
-async function loadLesson(base) {
-  const abs = resolveBase(base);
+  async function loadLessonJSON(base) {
+    const abs = resolveBase(base);
+    const data = await fetchJSON(abs + "content.json"); // required
+    return { data }; // no meta files
+  }
 
-  const meta = await fetchMeta(abs);
-
-  // 1) JSON
-  try {
-    const res = await fetch(abs + "content.json", { cache: "no-store" });
-    if (res.ok) {
-      const data = await res.json();
-      return { type: "json", meta, data };
-    }
-  } catch {}
-
-  // 2) HTML
-  try {
-    const res = await fetch(abs + "content.html", { cache: "no-store" });
-    if (res.ok) {
-      const html = await res.text();
-      return { type: "html", meta, html };
-    }
-  } catch {}
-
-  // 3) TXT (fallback)
-  try {
-    const res = await fetch(abs + "content.txt", { cache: "no-store" });
-    if (res.ok) {
-      const text = await res.text();
-      return { type: "text", meta, text };
-    }
-  } catch {}
-
-  throw new Error("No lesson content found (content.json / content.html / content.txt).");
-}
-
-
-  /* ========= Translation toggle component ========= */
-function TranslationToggle() {
-  let visible = false;
-  const btn = document.createElement("button");
-  btn.className = "btn btn-ghost";
-  btn.type = "button";
-  btn.textContent = "Show Translation";
-  btn.addEventListener("click", () => {
-    visible = !visible;
-    document.querySelectorAll("[data-translation]").forEach(el => {
-      el.style.display = visible ? "" : "none";
+  /* ========= Translation toggle ========= */
+  function TranslationToggle() {
+    let visible = false;
+    const btn = document.createElement("button");
+    btn.className = "btn btn-ghost";
+    btn.type = "button";
+    btn.textContent = "Show Translation";
+    btn.addEventListener("click", () => {
+      visible = !visible;
+      document.querySelectorAll("[data-translation]").forEach((el) => {
+        el.style.display = visible ? "" : "none";
+      });
+      btn.textContent = visible ? "Hide Translation" : "Show Translation";
     });
-    btn.textContent = visible ? "Hide Translation" : "Show Translation";
-  });
-  return btn;
-}
-
-/* ========== Renderers ========== */
-function applyTitleAndMeta({ meta, fallbackTitle }) {
-  if (titleEl) titleEl.textContent = meta?.title || fallbackTitle || "";
-  if (metaEl) {
-    const parts = [];
-    if (meta?.language) parts.push(meta.language);
-    if (meta?.level) parts.push(`Level ${meta.level}`);
-    metaEl.textContent = parts.join(" • ");
+    return btn;
   }
-}
-  
-function renderLessonJSON(json, meta) {
-  const { title, meta: jsonMeta, pairs } = json;
 
-  applyTitleAndMeta({
-    meta: { ...(meta || {}), ...(jsonMeta || {}) },
-    fallbackTitle: title || ""
-  });
-
-  const wrap = document.createElement("div");
-  wrap.className = "lesson-parallel";
-
-  const controls = document.createElement("div");
-  controls.className = "lesson-controls";
-  controls.appendChild(TranslationToggle());
-  wrap.appendChild(controls);
-
-  const plBlock = document.createElement("div");
-  const enBlock = document.createElement("div");
-  plBlock.className = "lesson-block pl";
-  enBlock.className = "lesson-block en";
-
-  const plP = document.createElement("p");
-  const enP = document.createElement("p");
-
-  plP.innerHTML = pairs.map(x => x.pl).join("<br>");
-  enP.innerHTML = pairs.map(x => x.en).join("<br>");
-  enP.setAttribute("data-translation", "");
-  enP.style.display = "none";
-
-  plBlock.appendChild(plP);
-  enBlock.appendChild(enP);
-  wrap.appendChild(plBlock);
-  wrap.appendChild(enBlock);
-
-  if (!contentEl) {
-    console.error("#reader-content missing");
-    return;
+  /* ========== Title/meta bar helper (uses only data.meta if present) ========== */
+  function setBars({ title, language, level }) {
+    if (titleEl) titleEl.textContent = title || "";
+    if (metaEl) {
+      const parts = [];
+      if (language) parts.push(language);
+      if (level) parts.push(`Level ${level}`);
+      metaEl.textContent = parts.join(" • ");
+    }
   }
-  contentEl.innerHTML = "";
-  contentEl.appendChild(wrap);
-}
 
-function renderLessonHTML(html, meta) {
-  if (!contentEl) {
-    console.error("#reader-content missing");
-    return;
-  }
-  // Inject raw HTML and try to pull title/meta from it as a best-effort
-  contentEl.innerHTML = html;
+  /* ========== JSON renderer (supports pairs OR paragraphs) ========== */
+  /*
+    Shape A (recommended):
+    {
+      "title":"Lekcja 1 — Czytanie",
+      "meta":{"language":"Polish","level":"A1"},
+      "pairs":[{"pl":"…","en":"…"}, ...]
+    }
 
-  // If the HTML includes a heading/meta, use them; else apply external meta
-  const h3 = contentEl.querySelector("h3");
-  const m = contentEl.querySelector(".meta");
-  applyTitleAndMeta({
-    meta: {
-      ...(meta || {}),
-      title: h3?.textContent?.trim() || meta?.title
-    },
-    fallbackTitle: h3?.textContent?.trim() || ""
-  });
-
-  // If the HTML contains a translation block, wire the toggle
-  const translation = contentEl.querySelector("#translation, [data-translation]");
-  if (translation) {
-    translation.style.display = "none";
-    translation.setAttribute("data-translation", "");
-    contentEl.prepend(TranslationToggle());
-  }
-}
-
-function renderLessonText(text, meta) {
-  if (!contentEl) {
-    console.error("#reader-content missing");
-    return;
-  }
-  applyTitleAndMeta({ meta, fallbackTitle: meta?.title || "Lesson" });
-  const pre = document.createElement("pre");
-  pre.textContent = text;
-  contentEl.innerHTML = "";
-  contentEl.appendChild(pre);
-}
-
-/* ========== Wire up lesson buttons (now awaits + renders) ========== */
-lessons.forEach((btn) => {
-  if (btn.disabled) return;
-  btn.addEventListener("click", async () => {
-    const base = btn.getAttribute("data-base");
-    if (!base) {
-      (window.uiPanic ? uiPanic : console.error)("lesson button missing data-base");
+    Shape B:
+    {
+      "title":"Lekcja 1 — Czytanie",
+      "meta":{"language":"Polish","level":"A1"},
+      "paragraphs":[ "...", "...", ... ],
+      "translation_paragraphs":[ "...", "...", ... ] // optional
+    }
+  */
+  function renderLessonJSON({ data }) {
+    if (!contentEl) {
+      console.error("#reader-content missing");
       return;
     }
-    try {
-      // lightweight loading state
-      if (contentEl) contentEl.textContent = "Loading lesson…";
 
-      const lesson = await loadLesson(base);
-      if (lesson.type === "json") {
-        renderLessonJSON(lesson.data, lesson.meta);
-      } else if (lesson.type === "html") {
-        renderLessonHTML(lesson.html, lesson.meta);
-      } else if (lesson.type === "text") {
-        renderLessonText(lesson.text, lesson.meta);
+    setBars({
+      title: data.title,
+      language: data.meta?.language,
+      level: data.meta?.level
+    });
+
+    const wrap = document.createElement("div");
+    wrap.className = "lesson-wrap";
+
+    const controls = document.createElement("div");
+    controls.className = "lesson-controls";
+
+    // A) Parallel pairs
+    if (Array.isArray(data.pairs) && data.pairs.length) {
+      const plBlock = document.createElement("div");
+      const enBlock = document.createElement("div");
+      plBlock.className = "lesson-block pl";
+      enBlock.className = "lesson-block en";
+
+      const plP = document.createElement("p");
+      const enP = document.createElement("p");
+
+      plP.innerHTML = data.pairs.map((x) => x.pl).join("<br>");
+      enP.innerHTML = data.pairs.map((x) => x.en).join("<br>");
+      enP.setAttribute("data-translation", "");
+      enP.style.display = "none";
+
+      plBlock.appendChild(plP);
+      enBlock.appendChild(enP);
+
+      controls.appendChild(TranslationToggle());
+      wrap.appendChild(controls);
+      wrap.appendChild(plBlock);
+      wrap.appendChild(enBlock);
+
+    // B) Plain paragraphs (+ optional translation)
+    } else if (Array.isArray(data.paragraphs)) {
+      const plBlock = document.createElement("div");
+      plBlock.className = "lesson-block pl";
+      const plP = document.createElement("p");
+      plP.innerHTML = data.paragraphs.join("<br>");
+      plBlock.appendChild(plP);
+      wrap.appendChild(plBlock);
+
+      if (Array.isArray(data.translation_paragraphs) && data.translation_paragraphs.length) {
+        const enBlock = document.createElement("div");
+        enBlock.className = "lesson-block en";
+        const enP = document.createElement("p");
+        enP.innerHTML = data.translation_paragraphs.join("<br>");
+        enP.setAttribute("data-translation", "");
+        enP.style.display = "none";
+        enBlock.appendChild(enP);
+
+        controls.appendChild(TranslationToggle());
+        wrap.prepend(controls);
+        wrap.appendChild(enBlock);
       }
 
-      // optional: close drawer after selecting a lesson
-      drawer?.classList.remove("open");
-    } catch (e) {
-      console.error(e);
-      if (contentEl) {
-        contentEl.innerHTML = `
-          <div class="error">
-            <strong>Couldn’t load lesson.</strong><br/>
-            ${String(e.message || e)}
-          </div>`;
-      }
+    } else {
+      // Unknown shape → dev hint
+      const pre = document.createElement("pre");
+      pre.textContent = "Unsupported content.json shape.\nExpected keys: pairs[] or paragraphs[].";
+      wrap.appendChild(pre);
     }
-  });
-});
 
-  /* ========== Storage: total + per-session logs */
+    contentEl.innerHTML = "";
+    contentEl.appendChild(wrap);
+  }
+
+  /* ========== Wire up lesson buttons (await + render + in-page errors) ========== */
+  lessons.forEach((btn) => {
+    if (btn.disabled) return;
+    btn.addEventListener("click", async () => {
+      const base = btn.getAttribute("data-base");
+      if (!base) {
+        (window.uiPanic ? uiPanic : console.error)("lesson button missing data-base");
+        return;
+      }
+      try {
+        if (contentEl) contentEl.textContent = "Loading lesson…";
+        const lesson = await loadLessonJSON(base);
+        renderLessonJSON(lesson);
+
+        // Close drawer after selecting a lesson
+        drawer?.classList.remove("open");
+      } catch (e) {
+        console.error(e);
+        if (contentEl) {
+          contentEl.innerHTML = `
+            <div class="error" role="alert" style="padding:12px;border:1px solid var(--border);border-radius:8px;">
+              <strong>Couldn’t load lesson.</strong><br>
+              I expected <code>content.json</code> in <code>${base}</code>.<br>
+              ${e?.message ? String(e.message) : ""}
+            </div>`;
+        }
+      }
+    });
+  });
+
+  /* ========== Storage: total + per-session logs ========== */
   const fmt = (ms) => {
     const s = Math.max(0, Math.round(ms / 1000));
     return `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
@@ -307,7 +271,7 @@ lessons.forEach((btn) => {
   };
   renderTotal();
 
-  /* ========== Floating tomato timer */
+  /* ========== Floating tomato timer ========== */
   let state = "idle",
     tick = null,
     startTs = 0,
