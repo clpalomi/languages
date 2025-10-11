@@ -18,19 +18,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const titleEl = document.querySelector("#reader-heading");
   const metaEl = document.querySelector("#reader-meta");
 
-  let contentEl = document.querySelector("#reader-content");
-  if (!contentEl && pageEl) {
-  contentEl = document.createElement("div");
-  contentEl.id = "reader-content";
-
-  if (metaEl && metaEl.parentElement === pageEl) {
-    // insert right after meta
-    metaEl.insertAdjacentElement("afterend", contentEl);
-  } else {
-    // fallback: append to the page
-    pageEl.appendChild(contentEl);
-  }
-  }
+  const contentEl = document.querySelector("#reader-content");
 
   const tomatoBtn = document.querySelector("#tomato");
   const hotspot = document.querySelector("#tomato-hotspot");
