@@ -97,10 +97,10 @@ document.addEventListener("DOMContentLoaded", () => {
     return null; // no meta available; that's fine
   }
 
-async function loadLesson(basePath) {
+async function loadLesson(base) {
   // Try JSON first
   try {
-    const res = await fetch(`${basePath}/content.json`, { cache: "no-store" });
+    const res = await fetch(`${base}/content.json`, { cache: "no-store" });
     if (res.ok) {
       const json = await res.json();
       return { type: "json", data: json };
@@ -190,13 +190,14 @@ function renderLessonHTML(html, mounts) {
 }
 
 
-  lessons.forEach((btn) => {
-    if (btn.disabled) return;
-    btn.addEventListener("click", () => {
-      const base = btn.getAttribute("data-base");
-      if (base) loadLesson(base);
-    });
+lessons.forEach((btn) => {
+  if (btn.disabled) return;
+  btn.addEventListener("click", () => {
+    const base = btn.getAttribute("data-base");
+    if (!base) return (window.uiPanic ? uiPanic : console.error)("lesson button missing data-base");
+    loadLesson(base); // now defined & in scope
   });
+});
 
   /* ========== Storage: total + per-session logs */
   const fmt = (ms) => {
