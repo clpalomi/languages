@@ -97,7 +97,7 @@ document.addEventListener("DOMContentLoaded", () => {
     return null; // no meta available; that's fine
   }
 
-async function loadLessonData(basePath) {
+async function loadLesson(basePath) {
   // Try JSON first
   try {
     const res = await fetch(`${basePath}/content.json`, { cache: "no-store" });
