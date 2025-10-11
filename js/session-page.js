@@ -83,31 +83,52 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   // NEW: try meta.json; meta is optional
-  async function fetchMeta(absBase) {
-    const metaCandidates = ["meta.json"];
-    for (const name of metaCandidates) {
-      try {
-        const res = await fetch(absBase + name, { cache: "no-cache" });
-        if (res.ok) return await res.json();
-        // continue to next candidate
-      } catch {
-        // continue
-      }
-    }
-    return null; // no meta available; that's fine
+async function fetchMeta(absBase) {
+  const candidates = ["meta.json", "meja.json"];
+  for (const name of candidates) {
+    try {
+      const res = await fetch(absBase + name, { cache: "no-store" });
+      if (res.ok) return await res.json();
+    } catch {}
   }
+  return null;
+}
 
 async function loadLesson(base) {
-  // Try JSON first
+  const abs = resolveBase(base);
+
+  const meta = await fetchMeta(abs);
+
+  // 1) JSON
   try {
-    const res = await fetch(`${base}/content.json`, { cache: "no-store" });
+    const res = await fetch(abs + "content.json", { cache: "no-store" });
     if (res.ok) {
-      const json = await res.json();
-      return { type: "json", data: json };
+      const data = await res.json();
+      return { type: "json", meta, data };
     }
   } catch {}
-  throw new Error("No lesson content found (json/html/txt).");
+
+  // 2) HTML
+  try {
+    const res = await fetch(abs + "content.html", { cache: "no-store" });
+    if (res.ok) {
+      const html = await res.text();
+      return { type: "html", meta, html };
+    }
+  } catch {}
+
+  // 3) TXT (fallback)
+  try {
+    const res = await fetch(abs + "content.txt", { cache: "no-store" });
+    if (res.ok) {
+      const text = await res.text();
+      return { type: "text", meta, text };
+    }
+  } catch {}
+
+  throw new Error("No lesson content found (content.json / content.html / content.txt).");
 }
+
 
   /* ========= Translation toggle component ========= */
 function TranslationToggle() {
@@ -126,16 +147,25 @@ function TranslationToggle() {
   return btn;
 }
 
-  /* ========= Lesson renderer ========= */
-function renderLessonJSON(json) {
-  const { title, meta, pairs } = json;
+/* ========== Renderers ========== */
+function applyTitleAndMeta({ meta, fallbackTitle }) {
+  if (titleEl) titleEl.textContent = meta?.title || fallbackTitle || "";
+  if (metaEl) {
+    const parts = [];
+    if (meta?.language) parts.push(meta.language);
+    if (meta?.level) parts.push(`Level ${meta.level}`);
+    metaEl.textContent = parts.join(" • ");
+  }
+}
+  
+function renderLessonJSON(json, meta) {
+  const { title, meta: jsonMeta, pairs } = json;
 
-  if (titleEl) titleEl.textContent = title || "";
-  if (metaEl)  metaEl.textContent  = (meta?.language && meta?.level)
-    ? `${meta.language} • Level ${meta.level}`
-    : (meta?.language || meta?.level || "");
+  applyTitleAndMeta({
+    meta: { ...(meta || {}), ...(jsonMeta || {}) },
+    fallbackTitle: title || ""
+  });
 
-  // Build lesson body
   const wrap = document.createElement("div");
   wrap.className = "lesson-parallel";
 
@@ -162,40 +192,88 @@ function renderLessonJSON(json) {
   wrap.appendChild(plBlock);
   wrap.appendChild(enBlock);
 
-  if (contentEl) {
-    contentEl.innerHTML = "";      // clear only the body, keep heading/meta
-    contentEl.appendChild(wrap);   // inject the lesson markup
+  if (!contentEl) {
+    console.error("#reader-content missing");
+    return;
   }
-
-  if (!contentEl) return console.error("#reader-content missing and could not be created");
   contentEl.innerHTML = "";
   contentEl.appendChild(wrap);
-  
 }
 
-function renderLessonHTML(html, mounts) {
-  // Use title/meta if present in HTML (best-effort)
-  if (mounts.page) {
-    mounts.page.innerHTML = html;
+function renderLessonHTML(html, meta) {
+  if (!contentEl) {
+    console.error("#reader-content missing");
+    return;
+  }
+  // Inject raw HTML and try to pull title/meta from it as a best-effort
+  contentEl.innerHTML = html;
 
-    // Inject a single toggle button above any translation block you tag with data-translation
-    const translation = mounts.page.querySelector("#translation, [data-translation]");
-    if (translation) {
-      translation.style.display = "none";
-      translation.setAttribute("data-translation", "");
-      const btn = TranslationToggle();
-      mounts.page.prepend(btn);
-    }
+  // If the HTML includes a heading/meta, use them; else apply external meta
+  const h3 = contentEl.querySelector("h3");
+  const m = contentEl.querySelector(".meta");
+  applyTitleAndMeta({
+    meta: {
+      ...(meta || {}),
+      title: h3?.textContent?.trim() || meta?.title
+    },
+    fallbackTitle: h3?.textContent?.trim() || ""
+  });
+
+  // If the HTML contains a translation block, wire the toggle
+  const translation = contentEl.querySelector("#translation, [data-translation]");
+  if (translation) {
+    translation.style.display = "none";
+    translation.setAttribute("data-translation", "");
+    contentEl.prepend(TranslationToggle());
   }
 }
 
+function renderLessonText(text, meta) {
+  if (!contentEl) {
+    console.error("#reader-content missing");
+    return;
+  }
+  applyTitleAndMeta({ meta, fallbackTitle: meta?.title || "Lesson" });
+  const pre = document.createElement("pre");
+  pre.textContent = text;
+  contentEl.innerHTML = "";
+  contentEl.appendChild(pre);
+}
 
+/* ========== Wire up lesson buttons (now awaits + renders) ========== */
 lessons.forEach((btn) => {
   if (btn.disabled) return;
-  btn.addEventListener("click", () => {
+  btn.addEventListener("click", async () => {
     const base = btn.getAttribute("data-base");
-    if (!base) return (window.uiPanic ? uiPanic : console.error)("lesson button missing data-base");
-    loadLesson(base); // now defined & in scope
+    if (!base) {
+      (window.uiPanic ? uiPanic : console.error)("lesson button missing data-base");
+      return;
+    }
+    try {
+      // lightweight loading state
+      if (contentEl) contentEl.textContent = "Loading lesson…";
+
+      const lesson = await loadLesson(base);
+      if (lesson.type === "json") {
+        renderLessonJSON(lesson.data, lesson.meta);
+      } else if (lesson.type === "html") {
+        renderLessonHTML(lesson.html, lesson.meta);
+      } else if (lesson.type === "text") {
+        renderLessonText(lesson.text, lesson.meta);
+      }
+
+      // optional: close drawer after selecting a lesson
+      drawer?.classList.remove("open");
+    } catch (e) {
+      console.error(e);
+      if (contentEl) {
+        contentEl.innerHTML = `
+          <div class="error">
+            <strong>Couldn’t load lesson.</strong><br/>
+            ${String(e.message || e)}
+          </div>`;
+      }
+    }
   });
 });
 
