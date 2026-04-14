@@ -181,12 +181,10 @@
 
     <!-- Lessons Drawer -->
     <nav id="lesson-drawer" class="drawer" aria-label="Lessons">
-      <div class="lessons">
+      <div class="lessons" id="lessons-list">
         <button class="lesson" data-base="./lessons/pl/lesson1/" data-default>
           Lesson 1 <span class="badge">Polish • A1</span>
         </button>
-        <button class="lesson" disabled>Lesson 2 (locked)</button>
-        <button class="lesson" disabled>Lesson 3 (locked)</button>
 
         <hr class="sep">
         <button class="menu-action" id="menu-comeback">Come back</button>
@@ -196,6 +194,39 @@
 
     <!-- Reader -->
     <main class="reader" id="main">
+            <section aria-labelledby="private-session-heading" style="max-width:min(100%, var(--measure)); margin:0 auto 18px; border:1px solid var(--border); border-radius:12px; padding:14px;">
+        <h3 id="private-session-heading" style="margin-top:0;">Private Session</h3>
+        <p class="meta">Choose how to start. Both paths support loading new material from your own text.</p>
+        <div class="row">
+          <button class="btn primary" id="mode-new-language">Start studying a new language</button>
+          <button class="btn" id="mode-existing-language">Study an already added language</button>
+        </div>
+
+        <div id="panel-new-language" style="display:none; margin-top:12px;">
+          <label for="new-language-name" class="muted">Language name</label>
+          <input id="new-language-name" type="text" placeholder="e.g., Polish"/>
+          <label for="new-language-text" class="muted" style="margin-top:8px; display:block;">Text to ingest (max 1200 words)</label>
+          <textarea id="new-language-text" rows="6" style="width:100%; border:1px solid var(--border); border-radius:10px; padding:10px;" placeholder="Paste text here..."></textarea>
+          <div class="row" style="margin-top:8px;">
+            <button class="btn primary" id="load-new-material-new">Load new material</button>
+          </div>
+        </div>
+
+        <div id="panel-existing-language" style="display:none; margin-top:12px;">
+          <label for="existing-language-select" class="muted">Your added languages</label>
+          <select id="existing-language-select" style="width:100%; min-height:44px; border:1px solid var(--border); border-radius:10px; padding:0 10px;">
+            <option value="">Select a language</option>
+          </select>
+          <label for="existing-language-text" class="muted" style="margin-top:8px; display:block;">Optional new text to ingest (max 1200 words)</label>
+          <textarea id="existing-language-text" rows="6" style="width:100%; border:1px solid var(--border); border-radius:10px; padding:10px;" placeholder="Paste text here..."></textarea>
+          <div class="row" style="margin-top:8px;">
+            <button class="btn" id="load-new-material-existing">Load new material</button>
+            <button class="btn primary" id="start-existing-lesson">Start lesson</button>
+          </div>
+        </div>
+        <p class="muted" id="private-session-status" style="margin-top:10px;"></p>
+      </section>
+      
       <article class="page" id="reader-page" aria-labelledby="reader-heading">
         <h3 id="reader-heading">Choose a lesson</h3>
         <div class="meta" id="reader-meta">No lesson loaded</div>
