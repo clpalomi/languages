@@ -6,4 +6,3 @@ Language learning
 
 ## Private sessions
 - Product/LLM plan: [`docs/private-sessions-llm-plan.md`](./docs/private-sessions-llm-plan.md)
-- Supabase schema + RLS: [`supabase/private_sessions_schema.sql`](./supabase/private_sessions_schema.sql)
