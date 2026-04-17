@@ -98,48 +98,7 @@
   .meta{ color:var(--muted); font-size:12px; margin:0 0 12px }
   .page p{ margin:0 0 14px; text-align:justify; hyphens:auto }
 
-  /* ===== Floating Pomodoro (tomato) ===== */
-  .tomato{
-    position: fixed; right: clamp(10px, 3vw, 22px); bottom: clamp(12px, 3vw, 22px);
-    inline-size: 64px; block-size: 64px; border:0; padding:0; background:transparent; cursor:pointer;
-    z-index: 30;
-  }
-  .tomato svg{ display:block; inline-size:100%; block-size:100%; filter: drop-shadow(0 8px 16px rgba(0,0,0,.2)); }
-  .tomato.vanish{ opacity:0; transition: opacity .18s ease; }
-  .tomato.vanish:hover{ opacity:1; }
-
-  /* Invisible hotspot to recover on mobile—still clickable even when invisible */
-  .tomato-hotspot{
-    position: fixed; right: clamp(6px, 3vw, 18px); bottom: clamp(8px, 3vw, 18px);
-    inline-size: 72px; block-size: 72px; z-index: 29; background: transparent;
-  }
-
-  /* Tomato sheet (controls) */
-  .sheet{
-    position: fixed; right: clamp(10px, 3vw, 22px); bottom: calc(clamp(12px, 3vw, 22px) + 72px);
-    background: var(--bg); border:1px solid var(--border); border-radius: var(--r); padding:12px;
-    box-shadow: 0 20px 50px rgba(0,0,0,.18); z-index: 35; min-inline-size: 240px;
-    opacity:0; transform: translateY(6px); pointer-events:none; transition: opacity .18s, transform .18s;
-  }
-  .sheet.open{ opacity:1; transform:none; pointer-events:auto }
-
-  /* NEW: Vanish the entire pomodoro box while running; reveal on hover/focus */
-  .sheet.vanish{
-    opacity:0; transform: translateY(6px);
-    pointer-events:auto; /* allow hover to revive it */
-    transition: opacity .18s, transform .18s;
-  }
-  .sheet.vanish:hover,
-  .sheet.vanish:focus-within{
-    opacity:1; transform:none;
-  }
-
   .row{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
-  .time{ font-weight:800; letter-spacing:.03em; font-variant-numeric: tabular-nums; }
-  input[type="number"]{
-    inline-size:84px; min-height: var(--tap); padding:0 10px; border-radius:10px; border:1px solid var(--border);
-    background:transparent; color:var(--fg); font-weight:700;
-  }
   .btn{
     min-height: var(--tap); padding:0 12px; border-radius:10px; border:1px solid var(--border);
     background:transparent; color:var(--fg); font-weight:700; cursor:pointer;
@@ -182,10 +141,6 @@
     <!-- Lessons Drawer -->
     <nav id="lesson-drawer" class="drawer" aria-label="Lessons">
       <div class="lessons" id="lessons-list">
-        <button class="lesson" data-base="./lessons/pl/lesson1/" data-default>
-          Lesson 1 <span class="badge">Polish • A1</span>
-        </button>
-
         <hr class="sep">
         <button class="menu-action" id="menu-comeback">Come back</button>
         <button class="menu-action" id="menu-signout">Sign out</button>
@@ -232,38 +187,10 @@
         <div class="meta" id="reader-meta">No lesson loaded</div>
         <!-- NEW: dedicated mount the JS will replace -->
         <div id="reader-content">
-          <p>Open the top menu and select <strong>Lesson 1</strong> to begin.</p>
+          <p>Add a language in Private Session, then open the menu to start its latest lesson.</p>
         </div>
       </article>
     </main>
-  </div>
-
-  <!-- Floating Tomato (button) -->
-  <button id="tomato" class="tomato" aria-haspopup="dialog" aria-controls="tomato-sheet" aria-expanded="false" aria-label="Open timer">
-    <svg viewBox="0 0 64 64" role="img" aria-hidden="true">
-      <path d="M32 10c5 0 8-4 10-6 2 3 2 7 0 10 8-2 14 3 16 8-4-1-8 0-11 2 9 4 15 13 15 22 0 12-10 18-30 18S2 58 2 46c0-9 6-18 15-22-3-2-7-3-11-2 2-5 8-10 16-8-2-3-2-7 0-10 2 2 5 6 10 6Z" fill="#ef4444"/>
-      <path d="M26 12c3 2 7 2 12 0-2 3-5 5-8 5s-6-2-4-5Z" fill="#16a34a"/>
-    </svg>
-  </button>
-  <!-- Invisible hotspot so the vanished tomato can be tapped on mobile -->
-  <div id="tomato-hotspot" class="tomato-hotspot" aria-hidden="true"></div>
-
-  <!-- Tomato Sheet (controls) -->
-  <div id="tomato-sheet" class="sheet" role="dialog" aria-modal="false" aria-labelledby="timer-title" aria-hidden="true">
-    <h2 id="timer-title" class="sr-only">Focus Timer</h2>
-    <div class="row" style="margin-bottom:8px">
-      <div id="time" class="time">25:00</div>
-      <span class="muted" id="status" aria-live="polite"></span>
-    </div>
-    <div class="row" style="margin-bottom:8px">
-      <label for="dur" class="sr-only">Duration (minutes)</label>
-      <input id="dur" type="number" min="1" max="60" value="25" inputmode="numeric"/>
-      <button id="start" class="btn primary">Start</button>
-      <button id="pause" class="btn">Pause</button>
-      <button id="reset" class="btn">Reset</button>
-      <button id="finish" class="btn danger">Finish</button>
-    </div>
-    <div class="muted" id="total"></div>
   </div>
 </body>
 </html>
