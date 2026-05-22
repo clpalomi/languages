@@ -1,5 +1,6 @@
 import { supabase } from './client.js';
 import { baseURL, todayES, qs } from './utils.js';
+import { computeStudyStrength } from '../src/utils/studyStrength.js';
 
 const LANGUAGE_COLORS = [
   '#7c3aed', '#22c55e', '#f97316', '#06b6d4', '#ec4899', '#eab308', '#14b8a6', '#ef4444', '#6366f1', '#84cc16'
@@ -29,6 +30,7 @@ const analyticsBarsEl = qs('#analytics-bars');
 const analyticsTotalEl = qs('#analytics-total');
 const analyticsViewBarsBtn = qs('#analytics-view-bars');
 const analyticsViewCumulativeBtn = qs('#analytics-view-cumulative');
+const analyticsViewVisualizeBtn = qs('#analytics-view-visualize');
 const analyticsRangeLabelEl = qs('#analytics-range-label');
 const analyticsLanguagesLabelEl = qs('#analytics-languages-label');
 const psSessionsTodayEl = qs('#ps-sessions-today');
@@ -265,6 +267,10 @@ function renderAnalytics() {
     renderCumulativeChart(selectedRows);
     return;
   }
+  if (analyticsViewMode === 'visualize') {
+    renderVisualizeChart(selectedRows);
+    return;
+  }
 
   if (!entries.length) {
     analyticsBarsEl.innerHTML = '<div class="empty analytics-empty">No study minutes match this filter.</div>';
@@ -286,6 +292,129 @@ function renderAnalytics() {
         </div>
       </div>`;
   }).join('');
+}
+
+function renderVisualizeChart(selectedRows) {
+  if (!selectedRows.length) {
+    analyticsBarsEl.innerHTML = '<div class="empty analytics-empty">No study minutes match this filter.</div>';
+    return;
+  }
+  const byLanguage = [...analyticsLanguageSelection];
+  if (byLanguage.length !== 1) {
+    analyticsBarsEl.innerHTML = '<div class="empty analytics-empty">Visualize needs exactly one selected language.</div>';
+    return;
+  }
+  const language = byLanguage[0];
+  const timeline = computeStudyStrength(selectedRows.filter((r) => (r.language || 'Unknown') === language));
+  const totalBlocks = timeline.length ? timeline[timeline.length - 1].blocks : 0;
+  const frameStates = buildFrames(timeline);
+  const latest = frameStates[frameStates.length - 1] || new Set();
+  const cells = [];
+  for (let i = 0; i < 10000; i++) {
+    cells.push(`<div class="visualize-cell ${latest.has(i) ? 'on' : ''}"></div>`);
+  }
+  const framesHtml = frameStates.map((set, idx) => {
+    const date = timeline[idx].date;
+    const score = timeline[idx].value.toFixed(1);
+    let mini = '';
+    for (let i = 0; i < 400; i++) mini += `<div class="visualize-mini-cell ${set.has(i) ? 'on' : ''}"></div>`;
+    return `<div class="visualize-frame"><div><strong>${escapeHtml(date)}</strong></div><div>Score: ${escapeHtml(score)} · Blocks: ${timeline[idx].blocks}</div><div class="visualize-mini-grid">${mini}</div></div>`;
+  }).join('');
+  analyticsBarsEl.innerHTML = `
+    <div class="visualize-wrap">
+      <div class="visualize-score">Language: <strong>${escapeHtml(language)}</strong> · Score: <strong>${timeline.length ? timeline[timeline.length - 1].value.toFixed(1) : '0'}</strong> · Blocks: <strong>${totalBlocks}</strong></div>
+      <div class="visualize-grid" aria-label="100 by 100 block grid">${cells.join('')}</div>
+      <div>
+        <button type="button" class="analytics-submit" id="visualize-play">Play</button>
+      </div>
+      <div class="visualize-timeline"><div class="visualize-frames" id="visualize-frames">${framesHtml || '<div class="muted">No timeline yet.</div>'}</div></div>
+    </div>`;
+  const playBtn = qs('#visualize-play');
+  playBtn?.addEventListener('click', () => animateVisualize(frameStates, timeline));
+}
+
+function buildFrames(timeline) {
+  const learned = new Set();
+  const order = [];
+  const center = 50 * 100 + 50;
+  let prevBlocks = 0;
+  for (const point of timeline) {
+    const blocks = Math.max(0, Math.min(10000, point.blocks));
+    if (blocks > prevBlocks) {
+      for (let i = prevBlocks; i < blocks; i++) {
+        const next = pickAdjacent(learned, order, center);
+        learned.add(next);
+        order.push(next);
+      }
+    } else if (blocks < prevBlocks) {
+      for (let i = prevBlocks; i > blocks; i--) {
+        const removed = order.pop();
+        if (removed !== undefined) learned.delete(removed);
+      }
+    }
+    prevBlocks = blocks;
+  }
+  const frames = [];
+  learned.clear();
+  prevBlocks = 0;
+  const replayOrder = [];
+  for (const point of timeline) {
+    const blocks = Math.max(0, Math.min(10000, point.blocks));
+    if (blocks > prevBlocks) {
+      for (let i = prevBlocks; i < blocks; i++) {
+        const next = pickAdjacent(learned, replayOrder, center);
+        learned.add(next);
+        replayOrder.push(next);
+      }
+    } else if (blocks < prevBlocks) {
+      for (let i = prevBlocks; i > blocks; i--) {
+        const removed = replayOrder.pop();
+        if (removed !== undefined) learned.delete(removed);
+      }
+    }
+    prevBlocks = blocks;
+    frames.push(new Set(learned));
+  }
+  return frames;
+}
+
+function pickAdjacent(learned, order, center) {
+  if (!order.length) return center;
+  const frontier = [];
+  for (const cell of learned) {
+    for (const neighbor of neighbors(cell)) {
+      if (!learned.has(neighbor)) frontier.push(neighbor);
+    }
+  }
+  frontier.sort((a, b) => distance(a, center) - distance(b, center));
+  return frontier[0] ?? center;
+}
+function neighbors(idx) {
+  const r = Math.floor(idx / 100), c = idx % 100, out = [];
+  if (r > 0) out.push((r - 1) * 100 + c);
+  if (r < 99) out.push((r + 1) * 100 + c);
+  if (c > 0) out.push(r * 100 + c - 1);
+  if (c < 99) out.push(r * 100 + c + 1);
+  return out;
+}
+function distance(a, b) {
+  const ar = Math.floor(a / 100), ac = a % 100, br = Math.floor(b / 100), bc = b % 100;
+  return Math.abs(ar - br) + Math.abs(ac - bc);
+}
+function animateVisualize(frameStates, timeline) {
+  const grid = qs('.visualize-grid');
+  if (!grid || !frameStates.length) return;
+  const cells = [...grid.children];
+  let i = 0;
+  const tick = () => {
+    const state = frameStates[i];
+    cells.forEach((cell, idx) => cell.classList.toggle('on', state.has(idx)));
+    const label = qs('.visualize-score');
+    if (label) label.innerHTML = `Language: <strong>${escapeHtml(timeline[i].language || 'Unknown')}</strong> · Score: <strong>${timeline[i].value.toFixed(1)}</strong> · Blocks: <strong>${timeline[i].blocks}</strong>`;
+    i += 1;
+    if (i < frameStates.length) setTimeout(tick, 380);
+  };
+  tick();
 }
 
 async function loadAnalytics() {
@@ -379,5 +508,6 @@ startBtn?.addEventListener('click', () => {
   }
 })();
 
-analyticsViewBarsBtn?.addEventListener('click', () => { analyticsViewMode = 'bars'; analyticsViewBarsBtn.classList.add('active'); analyticsViewCumulativeBtn?.classList.remove('active'); renderAnalytics(); });
-analyticsViewCumulativeBtn?.addEventListener('click', () => { analyticsViewMode = 'cumulative'; analyticsViewCumulativeBtn.classList.add('active'); analyticsViewBarsBtn?.classList.remove('active'); renderAnalytics(); });
+analyticsViewBarsBtn?.addEventListener('click', () => { analyticsViewMode = 'bars'; analyticsViewBarsBtn.classList.add('active'); analyticsViewCumulativeBtn?.classList.remove('active'); analyticsViewVisualizeBtn?.classList.remove('active'); renderAnalytics(); });
+analyticsViewCumulativeBtn?.addEventListener('click', () => { analyticsViewMode = 'cumulative'; analyticsViewCumulativeBtn.classList.add('active'); analyticsViewBarsBtn?.classList.remove('active'); analyticsViewVisualizeBtn?.classList.remove('active'); renderAnalytics(); });
+analyticsViewVisualizeBtn?.addEventListener('click', () => { analyticsViewMode = 'visualize'; analyticsViewVisualizeBtn.classList.add('active'); analyticsViewBarsBtn?.classList.remove('active'); analyticsViewCumulativeBtn?.classList.remove('active'); renderAnalytics(); });
