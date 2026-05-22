@@ -1,7 +1,7 @@
 const PARAMS = {
   decayHalfLifeDays: 60,
   baseRate: 1,
-  blockSize: 30,
+  blockSize: 15,
   gainMargin: 1,
   loseMargin: 0.92,
   multipliers: {
