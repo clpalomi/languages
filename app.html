@@ -111,12 +111,19 @@
     .analytics-total-card .big{ font-size:44px; line-height:1; font-weight:900; letter-spacing:-.06em; }
     .analytics-total-card .caption{ font-size:13px; color:#ffffffde; }
     .analytics-bars{ display:grid; gap:14px; }
+    .analytics-view-toggle{ display:inline-flex; gap:8px; padding:4px; border:1px solid var(--border); border-radius:999px; background:color-mix(in srgb,#000 3%,transparent); }
+    .analytics-view-toggle button{ border:0; background:transparent; color:var(--muted); font-weight:800; font-size:12px; padding:8px 12px; border-radius:999px; cursor:pointer; }
+    .analytics-view-toggle button.active{ background:linear-gradient(180deg,var(--primary-600),var(--primary)); color:#fff; }
     .analytics-bar-label{ display:flex; align-items:center; gap:10px; justify-content:space-between; font-size:14px; }
     .analytics-bar-label strong{ margin-right:auto; }
     .legend-dot{ width:12px; height:12px; border-radius:999px; flex:0 0 auto; }
     .analytics-track{ height:16px; border-radius:999px; background:color-mix(in srgb,#000 8%,transparent); overflow:hidden; }
     .analytics-fill{ height:100%; min-width:8px; border-radius:999px; }
     .analytics-empty{ border:1px dashed var(--border); border-radius:14px; }
+    .analytics-line-wrap{ border:1px solid var(--border); border-radius:14px; padding:12px; background:color-mix(in srgb,#000 3%,transparent); }
+    .analytics-line-legend{ display:flex; flex-wrap:wrap; gap:8px 12px; margin-top:10px; }
+    .analytics-line-item{ display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:700; }
+    .analytics-line-chart{ width:100%; height:auto; display:block; }
   </style>
 </head>
 <body>
@@ -147,7 +154,7 @@
          <p class="header-sub">Track each language learning session as its own row</p>
         </div>
         <div class="card-content">
-          <p class="info muted">Date is auto-set to today. Saving twice for the same language now creates two sessions, provided the Supabase table allows multiple rows for the same date/language/user.</p>
+          <p class="info muted">Date is auto-set to today.</p>
           <div class="grid">
             <div class="field"><label for="minutes">Study Minutes</label><input id="minutes" type="number" min="0" step="1" placeholder="e.g., 30" /></div>
             <div class="field"><label for="language">Language</label><input id="language" type="text" list="langs" placeholder="e.g., German" />
@@ -200,6 +207,10 @@
         </form>
         <div class="analytics-summary" id="analytics-summary" hidden>
           <div class="analytics-total-card"><div><div class="caption">Accumulated study minutes</div><div class="big" id="analytics-total">0</div></div><div class="caption"><strong>Range:</strong> <span id="analytics-range-label"></span><br><strong>Languages:</strong> <span id="analytics-languages-label"></span></div></div>
+          <div class="analytics-view-toggle" role="tablist" aria-label="Analytics view">
+            <button type="button" class="active" id="analytics-view-bars">Totals</button>
+            <button type="button" id="analytics-view-cumulative">Cumulative</button>
+          </div>
           <div class="analytics-bars" id="analytics-bars"></div>        
         </div>
       </div>
