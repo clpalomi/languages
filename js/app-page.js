@@ -27,6 +27,8 @@ const analyticsStatusEl = qs('#analytics-status');
 const analyticsSummaryEl = qs('#analytics-summary');
 const analyticsBarsEl = qs('#analytics-bars');
 const analyticsTotalEl = qs('#analytics-total');
+const analyticsViewBarsBtn = qs('#analytics-view-bars');
+const analyticsViewCumulativeBtn = qs('#analytics-view-cumulative');
 const analyticsRangeLabelEl = qs('#analytics-range-label');
 const analyticsLanguagesLabelEl = qs('#analytics-languages-label');
 const psSessionsTodayEl = qs('#ps-sessions-today');
@@ -39,6 +41,7 @@ analyticsEndEl.value = todayES();
 let currentUser = null;
 let analyticsRows = [];
 let analyticsLanguageSelection = new Set();
+let analyticsViewMode = 'bars';
 
 // Redirect to login if not signed in, preserving return URL
 async function requireSession() {
@@ -204,6 +207,49 @@ function renderLanguageChoices(rows) {
   }).join('');
 }
 
+
+function renderCumulativeChart(selectedRows) {
+  if (!selectedRows.length) {
+    analyticsBarsEl.innerHTML = '<div class="empty analytics-empty">No study minutes match this filter.</div>';
+    return;
+  }
+  const dayMap = new Map();
+  for (const row of selectedRows) {
+    const date = row.date;
+    const language = row.language || 'Unknown';
+    const minutes = Number(row.minutes || 0);
+    if (!dayMap.has(date)) dayMap.set(date, {});
+    dayMap.get(date)[language] = (dayMap.get(date)[language] || 0) + minutes;
+  }
+  const dates = [...dayMap.keys()].sort();
+  const languages = [...analyticsLanguageSelection].sort((a,b)=>a.localeCompare(b));
+  const cumulative = Object.fromEntries(languages.map((l) => [l, 0]));
+  const series = Object.fromEntries(languages.map((l) => [l, []]));
+  for (const date of dates) {
+    const obj = dayMap.get(date);
+    for (const l of languages) {
+      cumulative[l] += Number(obj[l] || 0);
+      series[l].push(cumulative[l]);
+    }
+  }
+  const maxY = Math.max(1, ...languages.flatMap((l) => series[l]));
+  const width = 740, height = 260, pad = 36;
+  const x = (i) => dates.length === 1 ? width / 2 : pad + (i * (width - pad * 2) / (dates.length - 1));
+  const y = (v) => height - pad - ((v / maxY) * (height - pad * 2));
+  const lines = languages.map((l, idx) => {
+    const points = series[l].map((v, i) => `${x(i).toFixed(2)},${y(v).toFixed(2)}`).join(' ');
+    return `<polyline fill="none" stroke="${getLanguageColor(l, idx)}" stroke-width="3" points="${points}" />`;
+  }).join('');
+  analyticsBarsEl.innerHTML = `<div class="analytics-line-wrap">
+    <svg class="analytics-line-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="Cumulative minutes by date">
+      <line x1="${pad}" y1="${height-pad}" x2="${width-pad}" y2="${height-pad}" stroke="currentColor" opacity=".25"/>
+      <line x1="${pad}" y1="${pad}" x2="${pad}" y2="${height-pad}" stroke="currentColor" opacity=".25"/>
+      ${lines}
+    </svg>
+    <div class="analytics-line-legend">${languages.map((l, idx)=>`<span class="analytics-line-item"><span class="legend-dot" style="background:${getLanguageColor(l, idx)}"></span>${escapeHtml(l)}</span>`).join('')}</div>
+  </div>`;
+}
+
 function renderAnalytics() {
   const selectedRows = analyticsRows.filter((row) => analyticsLanguageSelection.has(row.language || 'Unknown'));
   const totals = summarizeByLanguage(selectedRows);
@@ -214,6 +260,11 @@ function renderAnalytics() {
   analyticsTotalEl.textContent = String(totalMinutes);
   analyticsRangeLabelEl.textContent = `${analyticsStartEl.value} → ${analyticsEndEl.value}`;
   analyticsLanguagesLabelEl.textContent = entries.length ? entries.map(([language]) => language).join(', ') : 'No languages selected';
+
+  if (analyticsViewMode === 'cumulative') {
+    renderCumulativeChart(selectedRows);
+    return;
+  }
 
   if (!entries.length) {
     analyticsBarsEl.innerHTML = '<div class="empty analytics-empty">No study minutes match this filter.</div>';
@@ -327,3 +378,6 @@ startBtn?.addEventListener('click', () => {
     updateQuickStats(rows);
   }
 })();
+
+analyticsViewBarsBtn?.addEventListener('click', () => { analyticsViewMode = 'bars'; analyticsViewBarsBtn.classList.add('active'); analyticsViewCumulativeBtn?.classList.remove('active'); renderAnalytics(); });
+analyticsViewCumulativeBtn?.addEventListener('click', () => { analyticsViewMode = 'cumulative'; analyticsViewCumulativeBtn.classList.add('active'); analyticsViewBarsBtn?.classList.remove('active'); renderAnalytics(); });
