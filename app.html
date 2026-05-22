@@ -124,6 +124,17 @@
     .analytics-line-legend{ display:flex; flex-wrap:wrap; gap:8px 12px; margin-top:10px; }
     .analytics-line-item{ display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:700; }
     .analytics-line-chart{ width:100%; height:auto; display:block; }
+    .visualize-wrap{ display:grid; gap:14px; }
+    .visualize-score{ font-weight:800; font-size:14px; }
+    .visualize-grid{ display:grid; grid-template-columns:repeat(100, 1fr); gap:1px; width:min(100%,680px); aspect-ratio:1/1; background:#1f2937; padding:1px; border-radius:8px; }
+    .visualize-cell{ background:#000; }
+    .visualize-cell.on{ background:#fff; }
+    .visualize-timeline{ overflow-x:auto; padding-bottom:8px; }
+    .visualize-frames{ display:flex; gap:10px; min-width:max-content; }
+    .visualize-frame{ border:1px solid var(--border); border-radius:8px; padding:8px; background:color-mix(in srgb,#000 3%,transparent); font-size:11px; }
+    .visualize-mini-grid{ display:grid; grid-template-columns:repeat(20, 4px); gap:1px; margin-top:4px; }
+    .visualize-mini-cell{ width:4px; height:4px; background:#000; }
+    .visualize-mini-cell.on{ background:#fff; }
   </style>
 </head>
 <body>
@@ -210,6 +221,7 @@
           <div class="analytics-view-toggle" role="tablist" aria-label="Analytics view">
             <button type="button" class="active" id="analytics-view-bars">Totals</button>
             <button type="button" id="analytics-view-cumulative">Cumulative</button>
+            <button type="button" id="analytics-view-visualize">Visualize</button>
           </div>
           <div class="analytics-bars" id="analytics-bars"></div>        
         </div>
