@@ -124,17 +124,9 @@
     .analytics-line-legend{ display:flex; flex-wrap:wrap; gap:8px 12px; margin-top:10px; }
     .analytics-line-item{ display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:700; }
     .analytics-line-chart{ width:100%; height:auto; display:block; }
-    .visualize-wrap{ display:grid; gap:14px; }
-    .visualize-score{ font-weight:800; font-size:14px; }
-    .visualize-grid{ display:grid; grid-template-columns:repeat(100, 1fr); gap:1px; width:min(100%,680px); aspect-ratio:1/1; background:#1f2937; padding:1px; border-radius:8px; }
-    .visualize-cell{ background:#000; }
-    .visualize-cell.on{ background:#fff; }
-    .visualize-timeline{ overflow-x:auto; padding-bottom:8px; }
-    .visualize-frames{ display:flex; gap:10px; min-width:max-content; }
-    .visualize-frame{ border:1px solid var(--border); border-radius:8px; padding:8px; background:color-mix(in srgb,#000 3%,transparent); font-size:11px; }
-    .visualize-mini-grid{ display:grid; grid-template-columns:repeat(20, 4px); gap:1px; margin-top:4px; }
-    .visualize-mini-cell{ width:4px; height:4px; background:#000; }
-    .visualize-mini-cell.on{ background:#fff; }
+    .visualize-wrap{ display:grid; gap:12px; }
+    .visualize-note{ font-size:12px; color:var(--muted); }
+    .visualize-legend{ display:flex; gap:16px; flex-wrap:wrap; font-size:12px; font-weight:700; }
   </style>
 </head>
 <body>
@@ -146,6 +138,7 @@
     <nav class="side-actions">
         <button class="side-btn" id="about-open" type="button"><span>About</span><span aria-hidden="true">→</span></button>
         <button class="side-btn" id="analytics-open" type="button"><span>Analytics</span><span aria-hidden="true">↗</span></button>
+        <button class="side-btn" id="visualize-open" type="button"><span>Visualize</span><span aria-hidden="true">↗</span></button>
       </nav>
     </aside>
 
@@ -221,10 +214,28 @@
           <div class="analytics-view-toggle" role="tablist" aria-label="Analytics view">
             <button type="button" class="active" id="analytics-view-bars">Totals</button>
             <button type="button" id="analytics-view-cumulative">Cumulative</button>
-            <button type="button" id="analytics-view-visualize">Visualize</button>
           </div>
           <div class="analytics-bars" id="analytics-bars"></div>        
         </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="modal-overlay" id="visualize-overlay" hidden>
+    <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="visualize-title">
+      <div class="modal-head"><div><p class="modal-kicker">Visualize</p><h2 class="modal-title" id="visualize-title">Study strength vs cumulative minutes</h2></div><button class="modal-close" id="visualize-close" type="button" aria-label="Close Visualize">×</button></div>
+      <div class="modal-body">
+        <form class="analytics-form" id="visualize-form">
+          <div class="field"><label for="visualize-language">Language</label><select id="visualize-language"></select></div>
+          <label class="language-chip"><input type="checkbox" id="visualize-use-all" checked><span>Use all data (ignore date range)</span></label>
+          <div class="analytics-range">
+            <div class="field"><label for="visualize-start">From</label><input id="visualize-start" type="date" /></div>
+            <div class="field"><label for="visualize-end">To</label><input id="visualize-end" type="date" /></div>
+            <button class="analytics-submit" type="submit">Update</button>
+          </div>
+          <p class="muted" id="visualize-status" aria-live="polite"></p>
+        </form>
+        <div id="visualize-chart"></div>
       </div>
     </section>
   </div>
