@@ -1,3 +1,20 @@
+const PARAMS = {
+  decayHalfLifeDays: 5,
+  baseRate: 1,
+  blockSize: 120,
+  gainMargin: 1,
+  loseMargin: 0.92,
+  multipliers: {
+    sameDay: 1.25,
+    consecutiveDay: 1.20,
+    sameWeek: 1.10,
+    consecutiveWeek: 1.06,
+    sameMonth: 1.03,
+    consecutiveMonth: 1.01,
+    default: 1.00
+  },
+};
+
 export function computeStudyStrength(sessions, params = PARAMS) {
   const ordered = [...sessions].sort(
     (a, b) => new Date(a.date) - new Date(b.date)
