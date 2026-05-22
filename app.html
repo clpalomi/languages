@@ -129,9 +129,9 @@
     .visualize-legend{ display:flex; gap:16px; flex-wrap:wrap; font-size:12px; font-weight:700; }
     .grid-anim-controls{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
     .grid-anim-controls button{ border:1px solid var(--border); background:var(--card); color:var(--text); border-radius:10px; padding:6px 10px; font-weight:700; cursor:pointer; }
-    .visualize-grid{ display:grid; grid-template-columns:repeat(20, minmax(0, 1fr)); gap:2px; max-width:420px; }
-    .grid-cell{ aspect-ratio:1/1; background:#000; border-radius:2px; }
-    .grid-cell.is-active{ background:#fff; border:1px solid #d1d5db; }
+    .visualize-grid{ position:relative; display:grid; grid-template-columns:repeat(20, minmax(0, 1fr)); gap:0; max-width:420px; background:#000; overflow:hidden; }
+    .grid-cell{ aspect-ratio:1/1; background:#000; }
+    .grid-cell.is-active{ background-image:var(--grid-image); background-repeat:no-repeat; background-size:var(--grid-bg-size, contain); background-position:var(--grid-bg-position, center); }
   </style>
 </head>
 <body>
