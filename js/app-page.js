@@ -15,10 +15,13 @@ const statusEl = qs('#status');
 const rowsEl = qs('#rows');
 const todayEl = qs('#today');
 const analyticsBtn = qs('#analytics-open');
+const visualizeBtn = qs('#visualize-open');
 const aboutBtn = qs('#about-open');
 const analyticsOverlay = qs('#analytics-overlay');
 const aboutOverlay = qs('#about-overlay');
+const visualizeOverlay = qs('#visualize-overlay');
 const analyticsCloseBtn = qs('#analytics-close');
+const visualizeCloseBtn = qs('#visualize-close');
 const aboutCloseBtn = qs('#about-close');
 const analyticsForm = qs('#analytics-form');
 const analyticsStartEl = qs('#analytics-start');
@@ -30,9 +33,15 @@ const analyticsBarsEl = qs('#analytics-bars');
 const analyticsTotalEl = qs('#analytics-total');
 const analyticsViewBarsBtn = qs('#analytics-view-bars');
 const analyticsViewCumulativeBtn = qs('#analytics-view-cumulative');
-const analyticsViewVisualizeBtn = qs('#analytics-view-visualize');
 const analyticsRangeLabelEl = qs('#analytics-range-label');
 const analyticsLanguagesLabelEl = qs('#analytics-languages-label');
+const visualizeForm = qs('#visualize-form');
+const visualizeLanguageEl = qs('#visualize-language');
+const visualizeUseAllEl = qs('#visualize-use-all');
+const visualizeStartEl = qs('#visualize-start');
+const visualizeEndEl = qs('#visualize-end');
+const visualizeStatusEl = qs('#visualize-status');
+const visualizeChartEl = qs('#visualize-chart');
 const psSessionsTodayEl = qs('#ps-sessions-today');
 const psTotalMinutesEl = qs('#ps-total-minutes');
 
@@ -267,10 +276,6 @@ function renderAnalytics() {
     renderCumulativeChart(selectedRows);
     return;
   }
-  if (analyticsViewMode === 'visualize') {
-    renderVisualizeChart(selectedRows);
-    return;
-  }
 
   if (!entries.length) {
     analyticsBarsEl.innerHTML = '<div class="empty analytics-empty">No study minutes match this filter.</div>';
@@ -294,127 +299,76 @@ function renderAnalytics() {
   }).join('');
 }
 
-function renderVisualizeChart(selectedRows) {
-  if (!selectedRows.length) {
-    analyticsBarsEl.innerHTML = '<div class="empty analytics-empty">No study minutes match this filter.</div>';
+function populateVisualizeLanguages(rows) {
+  const languages = [...new Set(rows.map((row) => row.language || 'Unknown'))].sort((a, b) => a.localeCompare(b));
+  if (!languages.length) {
+    visualizeLanguageEl.innerHTML = '<option value="">No language available</option>';
     return;
   }
-  const byLanguage = [...analyticsLanguageSelection];
-  if (byLanguage.length !== 1) {
-    analyticsBarsEl.innerHTML = '<div class="empty analytics-empty">Visualize needs exactly one selected language.</div>';
+visualizeLanguageEl.innerHTML = languages.map((language) => `<option value="${escapeHtml(language)}">${escapeHtml(language)}</option>`).join('');
+}
+
+function renderVisualizeChart() {
+  const language = visualizeLanguageEl.value;
+  if (!language) {
+    visualizeChartEl.innerHTML = '<div class="empty analytics-empty">Select a language to visualize.</div>';
     return;
   }
-  const language = byLanguage[0];
-  const timeline = computeStudyStrength(selectedRows.filter((r) => (r.language || 'Unknown') === language));
-  const totalBlocks = timeline.length ? timeline[timeline.length - 1].blocks : 0;
-  const frameStates = buildFrames(timeline);
-  const latest = frameStates[frameStates.length - 1] || new Set();
-  const cells = [];
-  for (let i = 0; i < 10000; i++) {
-    cells.push(`<div class="visualize-cell ${latest.has(i) ? 'on' : ''}"></div>`);
+  let rows = analyticsRows.filter((r) => (r.language || 'Unknown') === language);
+  if (!visualizeUseAllEl.checked) {
+    const start = visualizeStartEl.value;
+    const end = visualizeEndEl.value;
+    if (!start || !end || start > end) {
+      visualizeStatusEl.textContent = 'Choose a valid date range.';
+      return;
+    }
+    rows = rows.filter((r) => r.date >= start && r.date <= end);
   }
-  const framesHtml = frameStates.map((set, idx) => {
-    const date = timeline[idx].date;
-    const score = timeline[idx].value.toFixed(1);
-    let mini = '';
-    for (let i = 0; i < 400; i++) mini += `<div class="visualize-mini-cell ${set.has(i) ? 'on' : ''}"></div>`;
-    return `<div class="visualize-frame"><div><strong>${escapeHtml(date)}</strong></div><div>Score: ${escapeHtml(score)} · Blocks: ${timeline[idx].blocks}</div><div class="visualize-mini-grid">${mini}</div></div>`;
+  visualizeStatusEl.textContent = rows.length ? `${rows.length} sessions included.` : 'No sessions match this configuration.';
+  if (!rows.length) {
+    visualizeChartEl.innerHTML = '<div class="empty analytics-empty">No sessions to graph.</div>';
+    return;
+  }
+  const timeline = computeStudyStrength(rows);
+  const points = timeline.map((p, i) => ({ ...p, cumulativeMinutes: rows.slice(0, i + 1).reduce((sum, row) => sum + Number(row.minutes || 0), 0) }));
+  const width = 760, height = 280, pad = 36;
+  const maxX = Math.max(1, points.length - 1);
+  const maxMinutes = Math.max(1, ...points.map((p) => p.cumulativeMinutes));
+  const maxStrength = Math.max(1, ...points.map((p) => p.value));
+  const x = (i) => pad + (i * (width - pad * 2) / maxX);
+  const yMin = (v) => height - pad - ((v / maxMinutes) * (height - pad * 2));
+  const yStr = (v) => height - pad - ((v / maxStrength) * (height - pad * 2));
+  const minLine = points.map((p, i) => `${x(i).toFixed(2)},${yMin(p.cumulativeMinutes).toFixed(2)}`).join(' ');
+  const strLine = points.map((p, i) => `${x(i).toFixed(2)},${yStr(p.value).toFixed(2)}`).join(' ');
+  const markers = points.map((p, i) => {
+    const prev = i ? points[i - 1].blocks : 0;
+    if (p.blocks <= prev) return '';
+    return `<circle cx="${x(i).toFixed(2)}" cy="${yStr(p.value).toFixed(2)}" r="3.5" fill="#f97316"/>`;
   }).join('');
-  analyticsBarsEl.innerHTML = `
-    <div class="visualize-wrap">
-      <div class="visualize-score">Language: <strong>${escapeHtml(language)}</strong> · Score: <strong>${timeline.length ? timeline[timeline.length - 1].value.toFixed(1) : '0'}</strong> · Blocks: <strong>${totalBlocks}</strong></div>
-      <div class="visualize-grid" aria-label="100 by 100 block grid">${cells.join('')}</div>
-      <div>
-        <button type="button" class="analytics-submit" id="visualize-play">Play</button>
-      </div>
-      <div class="visualize-timeline"><div class="visualize-frames" id="visualize-frames">${framesHtml || '<div class="muted">No timeline yet.</div>'}</div></div>
-    </div>`;
-  const playBtn = qs('#visualize-play');
-  playBtn?.addEventListener('click', () => animateVisualize(frameStates, timeline));
-}
+  visualizeChartEl.innerHTML = `<div class="visualize-wrap">
+    <div class="visualize-note">Language: <strong>${escapeHtml(language)}</strong>. Two curves: cumulative minutes and study strength. Orange points mark each block gain.</div>
+    <svg class="analytics-line-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="Cumulative minutes and study strength">
+      <line x1="${pad}" y1="${height - pad}" x2="${width - pad}" y2="${height - pad}" stroke="currentColor" opacity=".25"/>
+      <line x1="${pad}" y1="${pad}" x2="${pad}" y2="${height - pad}" stroke="currentColor" opacity=".25"/>
+      <polyline fill="none" stroke="#2563eb" stroke-width="3" points="${minLine}" />
+      <polyline fill="none" stroke="#16a34a" stroke-width="3" points="${strLine}" />
+      ${markers}
+    </svg>
+    <div class="visualize-legend"><span>🔵 Cumulative minutes</span><span>🟢 Study strength</span><span>🟠 Block gain</span></div>
+  </div>`;
+  }
+  
+async function loadAllEntries() {
+  let query = supabase
+    .from('entries')
+    .select('date, language, minutes')
+    .order('date', { ascending: true });
 
-function buildFrames(timeline) {
-  const learned = new Set();
-  const order = [];
-  const center = 50 * 100 + 50;
-  let prevBlocks = 0;
-  for (const point of timeline) {
-    const blocks = Math.max(0, Math.min(10000, point.blocks));
-    if (blocks > prevBlocks) {
-      for (let i = prevBlocks; i < blocks; i++) {
-        const next = pickAdjacent(learned, order, center);
-        learned.add(next);
-        order.push(next);
-      }
-    } else if (blocks < prevBlocks) {
-      for (let i = prevBlocks; i > blocks; i--) {
-        const removed = order.pop();
-        if (removed !== undefined) learned.delete(removed);
-      }
-    }
-    prevBlocks = blocks;
-  }
-  const frames = [];
-  learned.clear();
-  prevBlocks = 0;
-  const replayOrder = [];
-  for (const point of timeline) {
-    const blocks = Math.max(0, Math.min(10000, point.blocks));
-    if (blocks > prevBlocks) {
-      for (let i = prevBlocks; i < blocks; i++) {
-        const next = pickAdjacent(learned, replayOrder, center);
-        learned.add(next);
-        replayOrder.push(next);
-      }
-    } else if (blocks < prevBlocks) {
-      for (let i = prevBlocks; i > blocks; i--) {
-        const removed = replayOrder.pop();
-        if (removed !== undefined) learned.delete(removed);
-      }
-    }
-    prevBlocks = blocks;
-    frames.push(new Set(learned));
-  }
-  return frames;
-}
+  if (currentUser?.id) query = query.eq('user_id', currentUser.id);
 
-function pickAdjacent(learned, order, center) {
-  if (!order.length) return center;
-  const frontier = [];
-  for (const cell of learned) {
-    for (const neighbor of neighbors(cell)) {
-      if (!learned.has(neighbor)) frontier.push(neighbor);
-    }
-  }
-  frontier.sort((a, b) => distance(a, center) - distance(b, center));
-  return frontier[0] ?? center;
-}
-function neighbors(idx) {
-  const r = Math.floor(idx / 100), c = idx % 100, out = [];
-  if (r > 0) out.push((r - 1) * 100 + c);
-  if (r < 99) out.push((r + 1) * 100 + c);
-  if (c > 0) out.push(r * 100 + c - 1);
-  if (c < 99) out.push(r * 100 + c + 1);
-  return out;
-}
-function distance(a, b) {
-  const ar = Math.floor(a / 100), ac = a % 100, br = Math.floor(b / 100), bc = b % 100;
-  return Math.abs(ar - br) + Math.abs(ac - bc);
-}
-function animateVisualize(frameStates, timeline) {
-  const grid = qs('.visualize-grid');
-  if (!grid || !frameStates.length) return;
-  const cells = [...grid.children];
-  let i = 0;
-  const tick = () => {
-    const state = frameStates[i];
-    cells.forEach((cell, idx) => cell.classList.toggle('on', state.has(idx)));
-    const label = qs('.visualize-score');
-    if (label) label.innerHTML = `Language: <strong>${escapeHtml(timeline[i].language || 'Unknown')}</strong> · Score: <strong>${timeline[i].value.toFixed(1)}</strong> · Blocks: <strong>${timeline[i].blocks}</strong>`;
-    i += 1;
-    if (i < frameStates.length) setTimeout(tick, 380);
-  };
-  tick();
+  const { data, error } = await query;
+  if (error) return { data: [], error };
+  return { data: data || [], error: null };
 }
 
 async function loadAnalytics() {
@@ -466,11 +420,26 @@ analyticsBtn?.addEventListener('click', async () => {
   await loadAnalytics();
 });
 aboutBtn?.addEventListener('click', () => openOverlay(aboutOverlay));
+visualizeBtn?.addEventListener('click', async () => {
+  openOverlay(visualizeOverlay);
+  const { data, error } = await loadAllEntries();
+  if (error) { visualizeStatusEl.textContent = `Error: ${error.message}`; return; }
+  analyticsRows = data;
+  const allDates = analyticsRows.map((r) => r.date).sort();
+  visualizeStartEl.value = allDates[0] || todayES();
+  visualizeEndEl.value = allDates[allDates.length - 1] || todayES();
+  populateVisualizeLanguages(analyticsRows);
+  renderVisualizeChart();
+});
 analyticsCloseBtn?.addEventListener('click', () => closeOverlay(analyticsOverlay));
 aboutCloseBtn?.addEventListener('click', () => closeOverlay(aboutOverlay));
+visualizeCloseBtn?.addEventListener('click', () => closeOverlay(visualizeOverlay));
 
 analyticsOverlay?.addEventListener('click', (event) => {
   if (event.target === analyticsOverlay) closeOverlay(analyticsOverlay);
+});
+visualizeOverlay?.addEventListener('click', (event) => {
+  if (event.target === visualizeOverlay) closeOverlay(visualizeOverlay);
 });
 aboutOverlay?.addEventListener('click', (event) => {
   if (event.target === aboutOverlay) closeOverlay(aboutOverlay);
@@ -479,6 +448,7 @@ document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') {
     closeOverlay(analyticsOverlay);
     closeOverlay(aboutOverlay);
+    closeOverlay(visualizeOverlay);
   }
 });
 analyticsForm?.addEventListener('submit', async (event) => {
@@ -508,6 +478,9 @@ startBtn?.addEventListener('click', () => {
   }
 })();
 
-analyticsViewBarsBtn?.addEventListener('click', () => { analyticsViewMode = 'bars'; analyticsViewBarsBtn.classList.add('active'); analyticsViewCumulativeBtn?.classList.remove('active'); analyticsViewVisualizeBtn?.classList.remove('active'); renderAnalytics(); });
-analyticsViewCumulativeBtn?.addEventListener('click', () => { analyticsViewMode = 'cumulative'; analyticsViewCumulativeBtn.classList.add('active'); analyticsViewBarsBtn?.classList.remove('active'); analyticsViewVisualizeBtn?.classList.remove('active'); renderAnalytics(); });
-analyticsViewVisualizeBtn?.addEventListener('click', () => { analyticsViewMode = 'visualize'; analyticsViewVisualizeBtn.classList.add('active'); analyticsViewBarsBtn?.classList.remove('active'); analyticsViewCumulativeBtn?.classList.remove('active'); renderAnalytics(); });
+analyticsViewBarsBtn?.addEventListener('click', () => { analyticsViewMode = 'bars'; analyticsViewBarsBtn.classList.add('active'); analyticsViewCumulativeBtn?.classList.remove('active'); renderAnalytics(); });
+analyticsViewCumulativeBtn?.addEventListener('click', () => { analyticsViewMode = 'cumulative'; analyticsViewCumulativeBtn.classList.add('active'); analyticsViewBarsBtn?.classList.remove('active'); renderAnalytics(); });
+
+visualizeForm?.addEventListener('submit', (event) => { event.preventDefault(); renderVisualizeChart(); });
+visualizeLanguageEl?.addEventListener('change', renderVisualizeChart);
+visualizeUseAllEl?.addEventListener('change', renderVisualizeChart);
