@@ -1,16 +1,16 @@
 const PARAMS = {
   decayHalfLifeDays: 60,
   baseRate: 1,
-  blockSize: 60,
+  blockSize: 30,
   gainMargin: 1,
   loseMargin: 0.92,
   multipliers: {
-    sameDay: 1.25,
-    consecutiveDay: 1.20,
-    sameWeek: 1.10,
-    consecutiveWeek: 1.06,
-    sameMonth: 1.03,
-    consecutiveMonth: 1.01,
+    sameDay: 1.5,
+    consecutiveDay: 1.35,
+    sameWeek: 1.2,
+    consecutiveWeek: 1.15,
+    sameMonth: 1.05,
+    consecutiveMonth: 1.02,
     default: 1.00
   },
 };
