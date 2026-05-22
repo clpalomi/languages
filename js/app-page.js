@@ -403,7 +403,7 @@ function buildGridStates(points, revealableSet = null, startCell = null) {
               if (!active.has(nk) && (!revealableSet || revealableSet.has(nk))) candidates.push(nk);
             });
           });
-          if (candidates.length) chosen = candidates[0];
+          if (candidates.length) chosen = candidates[Math.floor(Math.random() * candidates.length)];
         }
         if (chosen && !active.has(chosen) && (!revealableSet || revealableSet.has(chosen))) { active.add(chosen); order.push(chosen); }
       }
@@ -425,31 +425,24 @@ function setupGridAnimation(states) {
   const captionEl = qs('#visualize-grid-caption');
   if (!gridEl || !playBtn || !captionEl) return;
 
-  const computeRevealMask = (imgWidth, imgHeight, size = 20) => {
-    const imageRatio = imgWidth / imgHeight;
-    let renderCols = size;
-    let renderRows = size;
-    if (imageRatio > 1) renderRows = Math.max(1, Math.round(size / imageRatio));
-    if (imageRatio < 1) renderCols = Math.max(1, Math.round(size * imageRatio));
-    const colOffset = Math.floor((size - renderCols) / 2);
-    const rowOffset = Math.floor((size - renderRows) / 2);
-    const revealable = new Set();
-    for (let r = rowOffset; r < rowOffset + renderRows; r += 1) {
-      for (let c = colOffset; c < colOffset + renderCols; c += 1) revealable.add(`${r},${c}`);
-    }
-    const center = `${Math.floor(size / 2)},${Math.floor(size / 2)}`;
-    const startCell = revealable.has(center) ? center : [...revealable][0] || center;
-    return { revealable, startCell };
-  };
-
   const imageUrl = 'images/flag_georgia.png';
   const applyImageAndRender = (imageMeta) => {
-    const { revealable, startCell } = computeRevealMask(imageMeta.width, imageMeta.height);
-    const effectiveStates = buildGridStates(states.map((s) => ({ blocks: s.blocks, value: s.value })), revealable, startCell);
+    const effectiveStates = buildGridStates(states.map((s) => ({ blocks: s.blocks, value: s.value })));
     const total = 400;
     gridEl.innerHTML = Array.from({ length: total }, (_, i) => `<div class="grid-cell" data-i="${i}"></div>`).join('');
     if (imageMeta.ok) gridEl.style.setProperty('--grid-image', `url("${imageUrl}")`);
     const cells = [...gridEl.querySelectorAll('.grid-cell')];
+    if (imageMeta.ok) {
+      const gridSize = 20;
+      cells.forEach((cell, index) => {
+        const r = Math.floor(index / gridSize);
+        const c = index % gridSize;
+        const x = (c / (gridSize - 1)) * 100;
+        const y = (r / (gridSize - 1)) * 100;
+        cell.style.backgroundSize = `${gridSize * 100}% ${gridSize * 100}%`;
+        cell.style.backgroundPosition = `${x}% ${y}%`;
+      });
+    }
     const mapIndex = (cellKey) => {
       const [r, c] = cellKey.split(',').map(Number);
       return (r * 20) + c;
