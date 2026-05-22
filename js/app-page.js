@@ -329,34 +329,138 @@ function renderVisualizeChart() {
     visualizeChartEl.innerHTML = '<div class="empty analytics-empty">No sessions to graph.</div>';
     return;
   }
+  
   const timeline = computeStudyStrength(rows);
-  const points = timeline.map((p, i) => ({ ...p, cumulativeMinutes: rows.slice(0, i + 1).reduce((sum, row) => sum + Number(row.minutes || 0), 0) }));
-  const width = 760, height = 280, pad = 36;
+  let runningMinutes = 0;
+  const points = timeline.map((p, i) => {
+    runningMinutes += Number(rows[i]?.minutes || 0);
+    return { ...p, cumulativeMinutes: runningMinutes };
+  });
+
+  const width = 760, height = 320, padL = 52, padR = 16, padT = 24, padB = 48;
   const maxX = Math.max(1, points.length - 1);
-  const maxMinutes = Math.max(1, ...points.map((p) => p.cumulativeMinutes));
   const maxStrength = Math.max(1, ...points.map((p) => p.value));
-  const x = (i) => pad + (i * (width - pad * 2) / maxX);
-  const yMin = (v) => height - pad - ((v / maxMinutes) * (height - pad * 2));
-  const yStr = (v) => height - pad - ((v / maxStrength) * (height - pad * 2));
-  const minLine = points.map((p, i) => `${x(i).toFixed(2)},${yMin(p.cumulativeMinutes).toFixed(2)}`).join(' ');
+  const x = (i) => padL + (i * (width - padL - padR) / maxX);
+  const yStr = (v) => height - padB - ((v / maxStrength) * (height - padT - padB));
+  
   const strLine = points.map((p, i) => `${x(i).toFixed(2)},${yStr(p.value).toFixed(2)}`).join(' ');
   const markers = points.map((p, i) => {
     const prev = i ? points[i - 1].blocks : 0;
     if (p.blocks <= prev) return '';
     return `<circle cx="${x(i).toFixed(2)}" cy="${yStr(p.value).toFixed(2)}" r="3.5" fill="#f97316"/>`;
   }).join('');
+  const tickIndexes = [...new Set([0, Math.floor(maxX * 0.25), Math.floor(maxX * 0.5), Math.floor(maxX * 0.75), maxX])];
+  const xTicks = tickIndexes.map((index) => {
+    const date = points[index]?.date || '';
+    return `<text x="${x(index).toFixed(2)}" y="${height - 16}" text-anchor="middle" font-size="11" fill="currentColor" opacity=".8">${escapeHtml(date)}</text>`;
+  }).join('');
+
+  const gridStates = buildGridStates(points);
+  
   visualizeChartEl.innerHTML = `<div class="visualize-wrap">
-    <div class="visualize-note">Language: <strong>${escapeHtml(language)}</strong>. Two curves: cumulative minutes and study strength. Orange points mark each block gain.</div>
-    <svg class="analytics-line-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="Cumulative minutes and study strength">
-      <line x1="${pad}" y1="${height - pad}" x2="${width - pad}" y2="${height - pad}" stroke="currentColor" opacity=".25"/>
-      <line x1="${pad}" y1="${pad}" x2="${pad}" y2="${height - pad}" stroke="currentColor" opacity=".25"/>
-      <polyline fill="none" stroke="#2563eb" stroke-width="3" points="${minLine}" />
+    <div class="visualize-note">Language: <strong>${escapeHtml(language)}</strong>. Curve is study strength over time and block progression over a 20×20 grid.</div>
+    <svg class="analytics-line-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="Study strength by date">
+      <line x1="${padL}" y1="${height - padB}" x2="${width - padR}" y2="${height - padB}" stroke="currentColor" opacity=".25"/>
+      <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${height - padB}" stroke="currentColor" opacity=".25"/>
       <polyline fill="none" stroke="#16a34a" stroke-width="3" points="${strLine}" />
       ${markers}
+      ${xTicks}
+      <text x="${padL - 34}" y="${height/2}" transform="rotate(-90 ${padL - 34} ${height/2})" font-size="12" font-weight="700">Punctuation</text>
     </svg>
-    <div class="visualize-legend"><span>🔵 Cumulative minutes</span><span>🟢 Study strength</span><span>🟠 Block gain</span></div>
+    <div class="visualize-legend"><span>🟢 Study strength</span><span>🟠 Block gain</span></div>
+    <div class="grid-anim-controls"><button id="visualize-grid-play" type="button">▶ Play</button><span id="visualize-grid-caption">Blocks: ${gridStates[0].blocks} · Punctuation: ${gridStates[0].value.toFixed(1)}</span></div>
+    <div class="visualize-grid" id="visualize-grid" aria-label="20 by 20 block grid"></div>
   </div>`;
-  }
+  
+  setupGridAnimation(gridStates);
+}
+
+function buildGridStates(points) {
+  const size = 20;
+  const center = Math.floor(size / 2);
+  const start = `${center},${center}`;
+  const active = new Set();
+  const order = [];
+  const states = [];
+
+  const neighbors = (r, c) => [[r-1,c],[r+1,c],[r,c-1],[r,c+1]].filter(([nr,nc]) => nr >= 0 && nr < size && nc >= 0 && nc < size);
+
+  points.forEach((point, idx) => {
+    const prevBlocks = idx ? points[idx - 1].blocks : 0;
+    const delta = point.blocks - prevBlocks;
+
+    if (delta > 0) {
+      for (let i = 0; i < delta; i += 1) {
+        let chosen = null;
+        if (!active.size) {
+          chosen = start;
+        } else {
+          const candidates = [];
+          active.forEach((key) => {
+            const [r,c] = key.split(',').map(Number);
+            neighbors(r,c).forEach(([nr,nc]) => {
+              const nk = `${nr},${nc}`;
+              if (!active.has(nk)) candidates.push(nk);
+            });
+          });
+          if (candidates.length) chosen = candidates[0];
+        }
+        if (chosen && !active.has(chosen)) { active.add(chosen); order.push(chosen); }
+      }
+    } else if (delta < 0) {
+      for (let i = 0; i < Math.abs(delta); i += 1) {
+        const key = order.pop();
+        if (key) active.delete(key);
+      }
+    }
+
+    states.push({ cells: [...active], blocks: point.blocks, value: point.value });
+  });
+  return states.length ? states : [{ cells: [], blocks: 0, value: 0 }];
+}
+
+function setupGridAnimation(states) {
+  const gridEl = qs('#visualize-grid');
+  const playBtn = qs('#visualize-grid-play');
+  const captionEl = qs('#visualize-grid-caption');
+  if (!gridEl || !playBtn || !captionEl) return;
+
+  const total = 400;
+  gridEl.innerHTML = Array.from({ length: total }, (_, i) => `<div class="grid-cell" data-i="${i}"></div>`).join('');
+  const mapIndex = (cellKey) => {
+    const [r, c] = cellKey.split(',').map(Number);
+    return (r * 20) + c;
+  };
+  const cells = [...gridEl.querySelectorAll('.grid-cell')];
+
+  const renderState = (idx) => {
+    cells.forEach((cell) => cell.classList.remove('is-active'));
+    states[idx].cells.forEach((key) => {
+      const index = mapIndex(key);
+      if (cells[index]) cells[index].classList.add('is-active');
+    });
+    captionEl.textContent = `Blocks: ${states[idx].blocks} · Punctuation: ${states[idx].value.toFixed(1)}`;
+  };
+
+  renderState(0);
+  let timer = null;
+  playBtn.onclick = () => {
+    if (timer) return;
+    let i = 0;
+    playBtn.disabled = true;
+    renderState(i);
+    timer = setInterval(() => {
+      i += 1;
+      if (i >= states.length) {
+        clearInterval(timer);
+        timer = null;
+        playBtn.disabled = false;
+        return;
+      }
+      renderState(i);
+    }, 450);
+  };
+}
   
 async function loadAllEntries() {
   let query = supabase
