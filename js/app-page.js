@@ -375,10 +375,10 @@ function renderVisualizeChart() {
   setupGridAnimation(gridStates);
 }
 
-function buildGridStates(points) {
+function buildGridStates(points, revealableSet = null, startCell = null) {
   const size = 20;
   const center = Math.floor(size / 2);
-  const start = `${center},${center}`;
+  const start = startCell || `${center},${center}`;
   const active = new Set();
   const order = [];
   const states = [];
@@ -400,12 +400,12 @@ function buildGridStates(points) {
             const [r,c] = key.split(',').map(Number);
             neighbors(r,c).forEach(([nr,nc]) => {
               const nk = `${nr},${nc}`;
-              if (!active.has(nk)) candidates.push(nk);
+              if (!active.has(nk) && (!revealableSet || revealableSet.has(nk))) candidates.push(nk);
             });
           });
           if (candidates.length) chosen = candidates[0];
         }
-        if (chosen && !active.has(chosen)) { active.add(chosen); order.push(chosen); }
+        if (chosen && !active.has(chosen) && (!revealableSet || revealableSet.has(chosen))) { active.add(chosen); order.push(chosen); }
       }
     } else if (delta < 0) {
       for (let i = 0; i < Math.abs(delta); i += 1) {
@@ -425,41 +425,68 @@ function setupGridAnimation(states) {
   const captionEl = qs('#visualize-grid-caption');
   if (!gridEl || !playBtn || !captionEl) return;
 
-  const total = 400;
-  gridEl.innerHTML = Array.from({ length: total }, (_, i) => `<div class="grid-cell" data-i="${i}"></div>`).join('');
-  const mapIndex = (cellKey) => {
-    const [r, c] = cellKey.split(',').map(Number);
-    return (r * 20) + c;
+  const computeRevealMask = (imgWidth, imgHeight, size = 20) => {
+    const imageRatio = imgWidth / imgHeight;
+    let renderCols = size;
+    let renderRows = size;
+    if (imageRatio > 1) renderRows = Math.max(1, Math.round(size / imageRatio));
+    if (imageRatio < 1) renderCols = Math.max(1, Math.round(size * imageRatio));
+    const colOffset = Math.floor((size - renderCols) / 2);
+    const rowOffset = Math.floor((size - renderRows) / 2);
+    const revealable = new Set();
+    for (let r = rowOffset; r < rowOffset + renderRows; r += 1) {
+      for (let c = colOffset; c < colOffset + renderCols; c += 1) revealable.add(`${r},${c}`);
+    }
+    const center = `${Math.floor(size / 2)},${Math.floor(size / 2)}`;
+    const startCell = revealable.has(center) ? center : [...revealable][0] || center;
+    return { revealable, startCell };
   };
-  const cells = [...gridEl.querySelectorAll('.grid-cell')];
 
-  const renderState = (idx) => {
-    cells.forEach((cell) => cell.classList.remove('is-active'));
-    states[idx].cells.forEach((key) => {
-      const index = mapIndex(key);
-      if (cells[index]) cells[index].classList.add('is-active');
-    });
-    captionEl.textContent = `Blocks: ${states[idx].blocks} · Punctuation: ${states[idx].value.toFixed(1)}`;
-  };
+  const imageUrl = 'images/flag_georgia.png';
+  const applyImageAndRender = (imageMeta) => {
+    const { revealable, startCell } = computeRevealMask(imageMeta.width, imageMeta.height);
+    const effectiveStates = buildGridStates(states.map((s) => ({ blocks: s.blocks, value: s.value })), revealable, startCell);
+    const total = 400;
+    gridEl.innerHTML = Array.from({ length: total }, (_, i) => `<div class="grid-cell" data-i="${i}"></div>`).join('');
+    if (imageMeta.ok) gridEl.style.setProperty('--grid-image', `url("${imageUrl}")`);
+    const cells = [...gridEl.querySelectorAll('.grid-cell')];
+    const mapIndex = (cellKey) => {
+      const [r, c] = cellKey.split(',').map(Number);
+      return (r * 20) + c;
+    };
 
-  renderState(0);
-  let timer = null;
-  playBtn.onclick = () => {
-    if (timer) return;
-    let i = 0;
-    playBtn.disabled = true;
-    renderState(i);
-    timer = setInterval(() => {
-      i += 1;
-      if (i >= states.length) {
-        clearInterval(timer);
-        timer = null;
-        playBtn.disabled = false;
-        return;
-      }
+    const renderState = (idx) => {
+      cells.forEach((cell) => cell.classList.remove('is-active'));
+      effectiveStates[idx].cells.forEach((key) => {
+        const index = mapIndex(key);
+        if (cells[index]) cells[index].classList.add('is-active');
+      });
+      captionEl.textContent = `Blocks: ${effectiveStates[idx].blocks} · Punctuation: ${effectiveStates[idx].value.toFixed(1)}`;
+    };
+
+    renderState(0);
+    let timer = null;
+    playBtn.onclick = () => {
+      if (timer) return;
+      let i = 0;
+      playBtn.disabled = true;
       renderState(i);
-    }, 450);
+      timer = setInterval(() => {
+        i += 1;
+        if (i >= effectiveStates.length) {
+          clearInterval(timer);
+          timer = null;
+          playBtn.disabled = false;
+          return;
+        }
+        renderState(i);
+      }, 450);
+    };
   };
+  const img = new Image();
+  img.onload = () => applyImageAndRender({ ok: true, width: img.naturalWidth || 1, height: img.naturalHeight || 1 });
+  img.onerror = () => applyImageAndRender({ ok: false, width: 1, height: 1 });
+  img.src = imageUrl;
 }
   
 async function loadAllEntries() {
