@@ -127,6 +127,11 @@
     .visualize-wrap{ display:grid; gap:12px; }
     .visualize-note{ font-size:12px; color:var(--muted); }
     .visualize-legend{ display:flex; gap:16px; flex-wrap:wrap; font-size:12px; font-weight:700; }
+    .grid-anim-controls{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+    .grid-anim-controls button{ border:1px solid var(--border); background:var(--card); color:var(--text); border-radius:10px; padding:6px 10px; font-weight:700; cursor:pointer; }
+    .visualize-grid{ display:grid; grid-template-columns:repeat(20, minmax(0, 1fr)); gap:2px; max-width:420px; }
+    .grid-cell{ aspect-ratio:1/1; background:#000; border-radius:2px; }
+    .grid-cell.is-active{ background:#fff; border:1px solid #d1d5db; }
   </style>
 </head>
 <body>
