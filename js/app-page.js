@@ -112,9 +112,9 @@ async function loadToday() {
   rowsEl.innerHTML = '';
   let query = supabase
     .from('entries')
-    .select('date, language, minutes')
+    .select('date, language, minutes, inserted_at')
     .eq('date', todayES())
-    .order('language', { ascending: true });
+    .order('inserted_at', { ascending: false });
 
   if (currentUser?.id) query = query.eq('user_id', currentUser.id);
 
@@ -161,17 +161,20 @@ async function saveEntry() {
     return;
   }
 
-  const payload = [{ date: todayES(), language, minutes, user_id: user.id }];
+  const payload = [{
+    date: todayES(),
+    language,
+    minutes,
+    user_id: user.id,
+    inserted_at: new Date().toISOString(),
+  }];
   const { error } = await supabase
     .from('entries')
     .insert(payload)
     .select();
 
   if (error) {
-    const duplicate = error.code === '23505' || /duplicate|unique|conflict/i.test(error.message || '');
-    statusEl.textContent = duplicate
-      ? 'Error: Supabase still has a unique rule for date + language + user. Remove that constraint or add an id/created_at primary key so multiple same-day sessions can be inserted.'
-      : `Error: ${error.message}`;
+    statusEl.textContent = `Error: ${error.message}`;
     setSavingUI(false);
     return;
   }
