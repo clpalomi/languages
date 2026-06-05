@@ -40,6 +40,17 @@ document.addEventListener("DOMContentLoaded", () => {
   const MAX_INGEST_WORDS = 1200;
   let currentUser = null;
   let userLanguages = [];
+  const privateSessionControls = [
+    modeNewBtn,
+    modeExistingBtn,
+    newLanguageNameEl,
+    newLanguageTextEl,
+    existingLanguageSelectEl,
+    existingLanguageTextEl,
+    loadNewMaterialNewBtn,
+    loadNewMaterialExistingBtn,
+    startExistingLessonBtn,
+  ];
 
   /* ========== Lessons drawer */
   const toggleDrawer = (open) => {
@@ -79,6 +90,28 @@ document.addEventListener("DOMContentLoaded", () => {
   const setStatus = (message) => {
     if (statusEl) statusEl.textContent = message;
   };
+
+  function setPrivateSessionControlsDisabled(disabled) {
+    privateSessionControls.forEach((control) => {
+      if (control) control.disabled = !!disabled;
+    });
+  }
+
+  async function currentUserCanUsePrivateSession() {
+    const email = (currentUser?.email || '').trim();
+    if (!email) return false;
+
+    const { data, error } = await supabase
+      .from("private_session_access")
+      .select("id")
+      .eq("email", email)
+      .eq("active", true)
+      .limit(1);
+
+    if (error) throw error;
+    return (data || []).length > 0;
+  }
+
 
   function openMode(mode) {
     const isNew = mode === "new";
@@ -427,10 +460,18 @@ document.addEventListener("DOMContentLoaded", () => {
     currentUser = sessionData?.session?.user || null;
     if (!currentUser) {
       setStatus("Please sign in to manage private sessions.");
-      modeNewBtn.disabled = true;
-      modeExistingBtn.disabled = true;
+      setPrivateSessionControlsDisabled(true);
       return;
     }
+
+    const isAllowed = await currentUserCanUsePrivateSession();
+    if (!isAllowed) {
+      setStatus("Private sessions are currently limited to approved accounts. Ask the app owner to add your email.");
+      setPrivateSessionControlsDisabled(true);
+      return;
+    }
+
+    setPrivateSessionControlsDisabled(false);
     await loadUserLanguages();
     await renderUserLessonButtons();
     openMode("new");
