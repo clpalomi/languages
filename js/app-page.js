@@ -44,6 +44,7 @@ const visualizeStatusEl = qs('#visualize-status');
 const visualizeChartEl = qs('#visualize-chart');
 const psSessionsTodayEl = qs('#ps-sessions-today');
 const psTotalMinutesEl = qs('#ps-total-minutes');
+const psAccessStatusEl = qs('#ps-access-status');
 
 todayEl.textContent = todayES();
 analyticsStartEl.value = todayES();
@@ -64,6 +65,29 @@ async function requireSession() {
     return null;
   }
   return session.user;
+}
+
+
+function setPrivateSessionStatus(message) {
+  if (psAccessStatusEl) psAccessStatusEl.textContent = message;
+}
+
+async function currentUserCanStartPrivateSession(user = currentUser) {
+  const email = (user?.email || '').trim();
+  if (!email) return false;
+
+  const { data, error } = await supabase
+    .from('private_session_access')
+    .select('id')
+    .eq('email', email)
+    .eq('active', true)
+    .limit(1);
+
+  if (error) {
+    throw new Error(`Private-session access check failed: ${error.message}`);
+  }
+
+  return (data || []).length > 0;
 }
 
 function escapeHtml(value) {
@@ -588,12 +612,32 @@ analyticsLanguageChoicesEl?.addEventListener('change', () => {
   renderAnalytics();
 });
 
-// Right card: navigate to session.html
+// Right card: navigate to session.html only for users on the private-session allow-list.
 const startBtn = document.getElementById('ps-start');
-startBtn?.addEventListener('click', () => {
+startBtn?.addEventListener('click', async () => {
   startBtn.disabled = true;
   startBtn.style.filter = 'brightness(1.05)';
-  setTimeout(() => { window.location.href = 'session.html'; }, 250);
+  setPrivateSessionStatus('Checking private-session access…');
+
+  try {
+    const user = currentUser || await requireSession();
+    if (!user) return;
+
+    const isAllowed = await currentUserCanStartPrivateSession(user);
+    if (!isAllowed) {
+      setPrivateSessionStatus('Private sessions are currently limited to approved accounts. Ask the app owner to add your email.');
+      startBtn.disabled = false;
+      startBtn.style.filter = '';
+      return;
+    }
+
+    setPrivateSessionStatus('Access approved. Opening your private session…');
+    setTimeout(() => { window.location.href = 'session.html'; }, 250);
+  } catch (error) {
+    setPrivateSessionStatus(error.message || 'Could not verify private-session access.');
+    startBtn.disabled = false;
+    startBtn.style.filter = '';
+  }
 });
 
 // Initialize: ensure session, then load
@@ -602,6 +646,14 @@ startBtn?.addEventListener('click', () => {
   if (currentUser) {
     const rows = await loadToday();
     updateQuickStats(rows);
+    try {
+      const isAllowed = await currentUserCanStartPrivateSession(currentUser);
+      setPrivateSessionStatus(isAllowed
+        ? 'Private sessions are enabled for your account.'
+        : 'Private sessions are currently limited to approved accounts.');
+    } catch (error) {
+      setPrivateSessionStatus(error.message || 'Could not verify private-session access.');
+    }
   }
 })();
 
