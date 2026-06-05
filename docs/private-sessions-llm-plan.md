@@ -17,15 +17,21 @@ Both modes use the same ingestion pipeline and write user-scoped data.
 
 ## Supabase storage model
 
-Use these user-scoped tables:
+Use these tables:
 
+- `private_session_access`: email allow-list for the **Start Private Session** button. Add the single email that should have access now; later, add or deactivate rows here to manage the permitted email list.
 - `user_languages`: one row per language per user.
 - `language_materials`: each imported text blob (with word count).
 - `material_sentences`: sentence-level extraction and EN translation.
 - `material_words`: unique words and EN translation.
 - `language_lessons`: generated lesson JSON for `session-page.js`.
 
-See `supabase/private_sessions_schema.sql` for SQL + RLS policies.
+See `supabase/private_sessions_schema.sql` for SQL + RLS policies. After running it in Supabase, seed the initial allowed user with:
+
+```sql
+insert into public.private_session_access (email, note)
+values ('allowed-person@example.com', 'Initial private-session tester');
+```
 
 ## LLM + translation integration (open source)
 
@@ -51,6 +57,7 @@ Recommended initial multilingual stack:
 
 ## Design
 
-- Keeps private language data isolated through RLS (`auth.uid() = user_id`).
+- Gates private-session entry with `private_session_access`, an active email allow-list table.
+- Keeps private language data isolated through RLS (`auth.uid() = user_id`) and requires the user to be allow-listed.
 - Keeps model API keys off the browser (inside Edge Function secrets).
 - Supports progressive improvements later (difficulty ranking, CEFR labels, quizzes).
