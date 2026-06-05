@@ -205,3 +205,73 @@ grant select, insert on public.language_materials to authenticated;
 grant select on public.material_sentences to authenticated;
 grant select on public.material_words to authenticated;
 grant select on public.language_lessons to authenticated;
+
+-- Language block history for the 20×20 visualization grid.
+-- Run this section in the Supabase SQL editor before using the updated
+-- visualization. The app writes one row per language session. Each row records
+-- the grid positions gained or lost during that session so LIFO block removal
+-- can be replayed exactly from stored data.
+create table if not exists public.language_block_history (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  language text not null,
+  date date not null,
+  block_added boolean not null default false,
+  block_removed boolean not null default false,
+  position_added_block text[] not null default '{}',
+  position_removed_block text[] not null default '{}',
+  punctuation numeric not null default 0,
+  visible_positions text[] not null default '{}',
+  hidden_positions text[] not null default '{}',
+  session_sequence integer not null check (session_sequence > 0),
+  operation_index integer not null default 0 check (operation_index >= 0),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (user_id, language, session_sequence)
+);
+
+comment on table public.language_block_history is
+  'Per-session block stack history for the visualization grid. Positions are row,column coordinates in the 20×20 grid.';
+comment on column public.language_block_history.block_added is
+  'True when this session increased the visible block stack.';
+comment on column public.language_block_history.block_removed is
+  'True when this session removed one or more visible blocks using LIFO.';
+comment on column public.language_block_history.position_added_block is
+  'One or more row,column positions added by this session, in stack order.';
+comment on column public.language_block_history.position_removed_block is
+  'One or more row,column positions removed by this session, in LIFO order.';
+comment on column public.language_block_history.punctuation is
+  'Study-strength punctuation after the session.';
+
+create index if not exists language_block_history_user_language_sequence_idx
+  on public.language_block_history (user_id, language, session_sequence);
+create index if not exists language_block_history_user_language_date_idx
+  on public.language_block_history (user_id, language, date);
+
+create or replace function public.language_block_history_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
+drop trigger if exists language_block_history_set_updated_at on public.language_block_history;
+create trigger language_block_history_set_updated_at
+before update on public.language_block_history
+for each row execute function public.language_block_history_updated_at();
+
+alter table public.language_block_history enable row level security;
+
+drop policy if exists "Users manage their own language block history" on public.language_block_history;
+create policy "Users manage their own language block history"
+on public.language_block_history
+for all
+to authenticated
+using (auth.uid() = user_id)
+with check (auth.uid() = user_id);
+
+revoke all on public.language_block_history from anon;
+grant select, insert, update, delete on public.language_block_history to authenticated;
