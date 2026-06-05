@@ -42,6 +42,7 @@ const visualizeStartEl = qs('#visualize-start');
 const visualizeEndEl = qs('#visualize-end');
 const visualizeStatusEl = qs('#visualize-status');
 const visualizeChartEl = qs('#visualize-chart');
+const visualizeEvolutionBtn = qs('#visualize-evolution');
 const psSessionsTodayEl = qs('#ps-sessions-today');
 const psTotalMinutesEl = qs('#ps-total-minutes');
 const psAccessStatusEl = qs('#ps-access-status');
@@ -121,7 +122,7 @@ function openOverlay(overlay) {
 
 function closeOverlay(overlay) {
   overlay?.setAttribute('hidden', '');
-  if (![analyticsOverlay, aboutOverlay].some((item) => item && !item.hasAttribute('hidden'))) {
+  if (![analyticsOverlay, aboutOverlay, visualizeOverlay].some((item) => item && !item.hasAttribute('hidden'))) {
     document.body.classList.remove('modal-open');
   }
 }
@@ -203,7 +204,12 @@ async function saveEntry() {
     return;
   }
 
-  statusEl.textContent = 'Saved as a new session';
+  try {
+    await ensureBlockHistoryForLanguage(language);
+    statusEl.textContent = 'Saved as a new session';
+  } catch (historyError) {
+    statusEl.textContent = `Saved session, but block history was not updated: ${historyError.message}`;
+  }
   minutesEl.value = '';
   languageEl.value = '';
   const rows = await loadToday();
@@ -326,22 +332,282 @@ function renderAnalytics() {
   }).join('');
 }
 
+const GRID_SIZE = 20;
+const GRID_TOTAL_CELLS = GRID_SIZE * GRID_SIZE;
+const BLOCK_HISTORY_SELECT = 'id, user_id, language, date, block_added, block_removed, position_added_block, position_removed_block, punctuation, visible_positions, hidden_positions, session_sequence, operation_index, created_at';
+
 function populateVisualizeLanguages(rows) {
   const languages = [...new Set(rows.map((row) => row.language || 'Unknown'))].sort((a, b) => a.localeCompare(b));
   if (!languages.length) {
     visualizeLanguageEl.innerHTML = '<option value="">No language available</option>';
     return;
   }
-visualizeLanguageEl.innerHTML = languages.map((language) => `<option value="${escapeHtml(language)}">${escapeHtml(language)}</option>`).join('');
+  visualizeLanguageEl.innerHTML = languages.map((language) => `<option value="${escapeHtml(language)}">${escapeHtml(language)}</option>`).join('');
 }
 
-function renderVisualizeChart() {
+function normalizePositionList(value) {
+  if (Array.isArray(value)) return value.filter(Boolean);
+  if (!value) return [];
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) return parsed.filter(Boolean);
+    } catch (_) {
+      // Supabase text[] values arrive as arrays through postgrest-js; keep this
+      // fallback for older manually seeded text rows.
+    }
+    return value.split(/[|;]/).map((item) => item.trim()).filter(Boolean);
+  }
+  return [];
+}
+
+function cellKeyToIndex(cellKey) {
+  const [r, c] = String(cellKey).split(',').map(Number);
+  if (!Number.isInteger(r) || !Number.isInteger(c)) return -1;
+  return (r * GRID_SIZE) + c;
+}
+
+function indexToCellKey(index) {
+  return `${Math.floor(index / GRID_SIZE)},${index % GRID_SIZE}`;
+}
+
+function getRandomInt(max) {
+  if (max <= 0) return 0;
+  if (window.crypto?.getRandomValues) {
+    const values = new Uint32Array(1);
+    window.crypto.getRandomValues(values);
+    return values[0] % max;
+  }
+  return Math.floor(Math.random() * max);
+}
+
+function findAvailableNeighbor(stack) {
+  const active = new Set(stack);
+  if (!active.size) return `${Math.floor(GRID_SIZE / 2)},${Math.floor(GRID_SIZE / 2)}`;
+
+  const candidates = [];
+  const seen = new Set();
+  const neighbors = (r, c) => [[r - 1, c], [r + 1, c], [r, c - 1], [r, c + 1]]
+    .filter(([nr, nc]) => nr >= 0 && nr < GRID_SIZE && nc >= 0 && nc < GRID_SIZE);
+
+  active.forEach((key) => {
+    const [r, c] = key.split(',').map(Number);
+    neighbors(r, c).forEach(([nr, nc]) => {
+      const candidate = `${nr},${nc}`;
+      if (!active.has(candidate) && !seen.has(candidate)) {
+        seen.add(candidate);
+        candidates.push(candidate);
+      }
+    });
+  });
+
+  if (candidates.length) return candidates[getRandomInt(candidates.length)];
+  
+  const remaining = Array.from({ length: GRID_TOTAL_CELLS }, (_, index) => indexToCellKey(index)).filter((key) => !active.has(key));
+  return remaining[getRandomInt(remaining.length)] || null;
+}
+
+function buildHistoryRowsFromSessions(sessions, existingHistory = []) {
+  const orderedSessions = [...sessions].sort((a, b) => {
+    const dateCompare = String(a.date || '').localeCompare(String(b.date || ''));
+    if (dateCompare) return dateCompare;
+    return String(a.inserted_at || '').localeCompare(String(b.inserted_at || ''));
+  });
+  const timeline = computeStudyStrength(orderedSessions);
+  const stack = [];
+
+  existingHistory.forEach((row) => {
+    normalizePositionList(row.position_added_block).forEach((position) => {
+      if (!stack.includes(position)) stack.push(position);
+    });
+    normalizePositionList(row.position_removed_block).forEach((position) => {
+      const index = stack.lastIndexOf(position);
+      if (index >= 0) stack.splice(index, 1);
+    });
+  });
+  
+  const startIndex = existingHistory.length;
+  const missingRows = [];
+
+  for (let index = startIndex; index < timeline.length; index += 1) {
+    const point = timeline[index];
+    const previousBlocks = index ? timeline[index - 1].blocks : 0;
+    const delta = point.blocks - previousBlocks;
+    const addedPositions = [];
+    const removedPositions = [];
+
+    if (delta > 0) {
+      for (let i = 0; i < delta; i += 1) {
+        const position = findAvailableNeighbor(stack);
+        if (!position) break;
+        stack.push(position);
+        addedPositions.push(position);
+      }
+    } else if (delta < 0) {
+      for (let i = 0; i < Math.abs(delta); i += 1) {
+        const position = stack.pop();
+        if (position) removedPositions.push(position);
+      }
+    }
+
+    const visiblePositions = [...stack];
+    const active = new Set(visiblePositions);
+    const hiddenPositions = Array.from({ length: GRID_TOTAL_CELLS }, (_, cellIndex) => indexToCellKey(cellIndex))
+      .filter((position) => !active.has(position));
+
+    missingRows.push({
+      user_id: currentUser.id,
+      language: point.language || orderedSessions[index]?.language || 'Unknown',
+      date: point.date,
+      block_added: addedPositions.length > 0,
+      block_removed: removedPositions.length > 0,
+      position_added_block: addedPositions,
+      position_removed_block: removedPositions,
+      punctuation: Number(point.value || 0),
+      visible_positions: visiblePositions,
+      hidden_positions: hiddenPositions,
+      session_sequence: index + 1,
+      operation_index: 0
+    });
+  }
+
+  return missingRows;
+}
+
+function sortHistoryRows(rows) {
+  return [...rows].sort((a, b) => {
+    const seq = Number(a.session_sequence || 0) - Number(b.session_sequence || 0);
+    if (seq) return seq;
+    const dateCompare = String(a.date || '').localeCompare(String(b.date || ''));
+    if (dateCompare) return dateCompare;
+    return String(a.created_at || '').localeCompare(String(b.created_at || ''));
+  });
+}
+
+async function loadBlockHistory(language) {
+  if (!currentUser?.id || !language) return { data: [], error: null };
+  const { data, error } = await supabase
+    .from('language_block_history')
+    .select(BLOCK_HISTORY_SELECT)
+    .eq('user_id', currentUser.id)
+    .eq('language', language)
+    .order('session_sequence', { ascending: true })
+    .order('created_at', { ascending: true });
+
+  return { data: sortHistoryRows(data || []), error };
+}
+
+async function loadEntriesForLanguage(language) {
+  let query = supabase
+    .from('entries')
+    .select('date, language, minutes, inserted_at')
+    .eq('language', language)
+    .order('date', { ascending: true })
+    .order('inserted_at', { ascending: true });
+
+  if (currentUser?.id) query = query.eq('user_id', currentUser.id);
+
+  const { data, error } = await query;
+  return { data: data || [], error };
+}
+
+async function ensureBlockHistoryForLanguage(language) {
+  const [historyResult, entriesResult] = await Promise.all([
+    loadBlockHistory(language),
+    loadEntriesForLanguage(language)
+  ]);
+
+  if (historyResult.error) return historyResult;
+  if (entriesResult.error) return entriesResult;
+
+  const historyRows = historyResult.data || [];
+  const entryRows = entriesResult.data || [];
+  if (!entryRows.length || historyRows.length >= entryRows.length) {
+    return { data: historyRows, error: null };
+  }
+
+  const missingRows = buildHistoryRowsFromSessions(entryRows, historyRows);
+  if (!missingRows.length) return { data: historyRows, error: null };
+
+  const { data, error } = await supabase
+    .from('language_block_history')
+    .upsert(missingRows, { onConflict: 'user_id,language,session_sequence' })
+    .select(BLOCK_HISTORY_SELECT);
+
+  if (error) return { data: historyRows, error };
+  return { data: sortHistoryRows([...historyRows, ...(data || [])]), error: null };
+}
+
+function replayBlockHistory(historyRows) {
+  const stack = [];
+  const states = [];
+
+  sortHistoryRows(historyRows).forEach((row) => {
+    const added = normalizePositionList(row.position_added_block);
+    const removed = normalizePositionList(row.position_removed_block);
+
+    added.forEach((position) => {
+      if (!stack.includes(position)) stack.push(position);
+    });
+
+    removed.forEach((position) => {
+      const top = stack[stack.length - 1];
+      if (top === position) {
+        stack.pop();
+      } else {
+        const index = stack.lastIndexOf(position);
+        if (index >= 0) stack.splice(index, 1);
+      }
+    });
+
+    const storedVisiblePositions = normalizePositionList(row.visible_positions);
+    states.push({
+      date: row.date,
+      punctuation: Number(row.punctuation || 0),
+      cells: storedVisiblePositions.length ? storedVisiblePositions : [...stack],
+      added,
+      removed
+    });
+  });
+
+  return states.length ? states : [{ date: '', punctuation: 0, cells: [], added: [], removed: [] }];
+}
+
+function renderBlockHistoryTable(historyRows) {
+  if (!historyRows.length) return '<div class="block-history-empty">No block history is stored for this language yet.</div>';
+  const recentRows = sortHistoryRows(historyRows).slice(-8).reverse();
+  return `<table class="block-history-table" aria-label="Recent block history">
+    <thead><tr><th>Session</th><th>Date</th><th>Added</th><th>Removed</th><th class="right">Punctuation</th></tr></thead>
+    <tbody>${recentRows.map((row) => {
+      const added = normalizePositionList(row.position_added_block);
+      const removed = normalizePositionList(row.position_removed_block);
+      return `<tr>
+        <td>${escapeHtml(row.session_sequence || '')}</td>
+        <td>${escapeHtml(row.date || '')}</td>
+        <td>${added.length ? escapeHtml(added.join(' · ')) : '—'}</td>
+        <td>${removed.length ? escapeHtml(removed.join(' · ')) : '—'}</td>
+        <td class="right">${Number(row.punctuation || 0).toFixed(1)}</td>
+      </tr>`;
+    }).join('')}</tbody>
+  </table>`;
+}
+
+async function renderVisualizeChart({ playEvolution = false } = {}) {
   const language = visualizeLanguageEl.value;
   if (!language) {
     visualizeChartEl.innerHTML = '<div class="empty analytics-empty">Select a language to visualize.</div>';
     return;
   }
-  let rows = analyticsRows.filter((r) => (r.language || 'Unknown') === language);
+
+  visualizeStatusEl.textContent = 'Loading stored block history…';
+  const { data: historyRows, error } = await ensureBlockHistoryForLanguage(language);
+  if (error) {
+    visualizeStatusEl.textContent = `Error: ${error.message}`;
+    visualizeChartEl.innerHTML = '<div class="empty analytics-empty">Could not load block history. Make sure the Supabase table has been created.</div>';
+    return;
+  }
+
+  let filteredRows = historyRows || [];
   if (!visualizeUseAllEl.checked) {
     const start = visualizeStartEl.value;
     const end = visualizeEndEl.value;
@@ -349,104 +615,27 @@ function renderVisualizeChart() {
       visualizeStatusEl.textContent = 'Choose a valid date range.';
       return;
     }
-    rows = rows.filter((r) => r.date >= start && r.date <= end);
+    filteredRows = filteredRows.filter((row) => row.date >= start && row.date <= end);
   }
-  visualizeStatusEl.textContent = rows.length ? `${rows.length} sessions included.` : 'No sessions match this configuration.';
-  if (!rows.length) {
-    visualizeChartEl.innerHTML = '<div class="empty analytics-empty">No sessions to graph.</div>';
-    return;
-  }
-  
-  const timeline = computeStudyStrength(rows);
-  let runningMinutes = 0;
-  const points = timeline.map((p, i) => {
-    runningMinutes += Number(rows[i]?.minutes || 0);
-    return { ...p, cumulativeMinutes: runningMinutes };
-  });
 
-  const width = 760, height = 320, padL = 52, padR = 16, padT = 24, padB = 48;
-  const maxX = Math.max(1, points.length - 1);
-  const maxStrength = Math.max(1, ...points.map((p) => p.value));
-  const x = (i) => padL + (i * (width - padL - padR) / maxX);
-  const yStr = (v) => height - padB - ((v / maxStrength) * (height - padT - padB));
-  
-  const strLine = points.map((p, i) => `${x(i).toFixed(2)},${yStr(p.value).toFixed(2)}`).join(' ');
-  const markers = points.map((p, i) => {
-    const prev = i ? points[i - 1].blocks : 0;
-    if (p.blocks <= prev) return '';
-    return `<circle cx="${x(i).toFixed(2)}" cy="${yStr(p.value).toFixed(2)}" r="3.5" fill="#f97316"/>`;
-  }).join('');
-  const tickIndexes = [...new Set([0, Math.floor(maxX * 0.25), Math.floor(maxX * 0.5), Math.floor(maxX * 0.75), maxX])];
-  const xTicks = tickIndexes.map((index) => {
-    const date = points[index]?.date || '';
-    return `<text x="${x(index).toFixed(2)}" y="${height - 16}" text-anchor="middle" font-size="11" fill="currentColor" opacity=".8">${escapeHtml(date)}</text>`;
-  }).join('');
+  const states = replayBlockHistory(filteredRows);
+  const finalState = states[states.length - 1];
+  visualizeStatusEl.textContent = filteredRows.length
+    ? `${filteredRows.length} stored sessions loaded. Showing the last grid organization.`
+    : 'No block-history rows match this configuration.';
 
-  const gridStates = buildGridStates(points);
-  
   visualizeChartEl.innerHTML = `<div class="visualize-wrap">
-    <div class="visualize-note">Language: <strong>${escapeHtml(language)}</strong>. Curve is study strength over time and block progression over a 20×20 grid.</div>
-    <svg class="analytics-line-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="Study strength by date">
-      <line x1="${padL}" y1="${height - padB}" x2="${width - padR}" y2="${height - padB}" stroke="currentColor" opacity=".25"/>
-      <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${height - padB}" stroke="currentColor" opacity=".25"/>
-      <polyline fill="none" stroke="#16a34a" stroke-width="3" points="${strLine}" />
-      ${markers}
-      ${xTicks}
-      <text x="${padL - 34}" y="${height/2}" transform="rotate(-90 ${padL - 34} ${height/2})" font-size="12" font-weight="700">Punctuation</text>
-    </svg>
-    <div class="visualize-legend"><span>🟢 Study strength</span><span>🟠 Block gain</span></div>
-    <div class="grid-anim-controls"><button id="visualize-grid-play" type="button">▶ Play</button><span id="visualize-grid-caption">Blocks: ${gridStates[0].blocks} · Punctuation: ${gridStates[0].value.toFixed(1)}</span></div>
-    <div class="visualize-grid" id="visualize-grid" aria-label="20 by 20 block grid"></div>
+    <div class="visualize-note">Language: <strong>${escapeHtml(language)}</strong>. The grid shows the latest stored visible blocks; pale cells are currently not visible. Use “Visualize evolution” to replay the stored LIFO history.</div>
+    <div class="visualize-legend"><span>Visible blocks: ${finalState.cells.length}</span><span>Not visible: ${GRID_TOTAL_CELLS - finalState.cells.length}</span><span>Punctuation: ${finalState.punctuation.toFixed(1)}</span></div>
+    <div class="grid-anim-controls"><button id="visualize-grid-play" type="button">Visualize evolution</button><span id="visualize-grid-caption">Final state · ${escapeHtml(finalState.date || 'No date')}</span></div>
+    <div class="visualize-grid-shell"><div class="visualize-grid" id="visualize-grid" aria-label="20 by 20 block grid"></div></div>
+    ${renderBlockHistoryTable(filteredRows)}
   </div>`;
-  
-  setupGridAnimation(gridStates);
+
+  setupGridAnimation(states, { autoplay: playEvolution });
 }
 
-function buildGridStates(points, revealableSet = null, startCell = null) {
-  const size = 20;
-  const center = Math.floor(size / 2);
-  const start = startCell || `${center},${center}`;
-  const active = new Set();
-  const order = [];
-  const states = [];
-
-  const neighbors = (r, c) => [[r-1,c],[r+1,c],[r,c-1],[r,c+1]].filter(([nr,nc]) => nr >= 0 && nr < size && nc >= 0 && nc < size);
-
-  points.forEach((point, idx) => {
-    const prevBlocks = idx ? points[idx - 1].blocks : 0;
-    const delta = point.blocks - prevBlocks;
-
-    if (delta > 0) {
-      for (let i = 0; i < delta; i += 1) {
-        let chosen = null;
-        if (!active.size) {
-          chosen = start;
-        } else {
-          const candidates = [];
-          active.forEach((key) => {
-            const [r,c] = key.split(',').map(Number);
-            neighbors(r,c).forEach(([nr,nc]) => {
-              const nk = `${nr},${nc}`;
-              if (!active.has(nk) && (!revealableSet || revealableSet.has(nk))) candidates.push(nk);
-            });
-          });
-          if (candidates.length) chosen = candidates[Math.floor(Math.random() * candidates.length)];
-        }
-        if (chosen && !active.has(chosen) && (!revealableSet || revealableSet.has(chosen))) { active.add(chosen); order.push(chosen); }
-      }
-    } else if (delta < 0) {
-      for (let i = 0; i < Math.abs(delta); i += 1) {
-        const key = order.pop();
-        if (key) active.delete(key);
-      }
-    }
-
-    states.push({ cells: [...active], blocks: point.blocks, value: point.value });
-  });
-  return states.length ? states : [{ cells: [], blocks: 0, value: 0 }];
-}
-
-function setupGridAnimation(states) {
+function setupGridAnimation(states, { autoplay = false } = {}) {
   const gridEl = qs('#visualize-grid');
   const playBtn = qs('#visualize-grid-play');
   const captionEl = qs('#visualize-grid-caption');
@@ -454,58 +643,67 @@ function setupGridAnimation(states) {
 
   const imageUrl = 'images/flag_georgia.png';
   const applyImageAndRender = (imageMeta) => {
-    const effectiveStates = buildGridStates(states.map((s) => ({ blocks: s.blocks, value: s.value })));
-    const total = 400;
-    gridEl.innerHTML = Array.from({ length: total }, (_, i) => `<div class="grid-cell" data-i="${i}"></div>`).join('');
+    gridEl.innerHTML = Array.from({ length: GRID_TOTAL_CELLS }, (_, i) => `<div class="grid-cell is-hidden" data-i="${i}"></div>`).join('');
     if (imageMeta.ok) gridEl.style.setProperty('--grid-image', `url("${imageUrl}")`);
     const cells = [...gridEl.querySelectorAll('.grid-cell')];
     if (imageMeta.ok) {
-      const gridSize = 20;
       cells.forEach((cell, index) => {
-        const r = Math.floor(index / gridSize);
-        const c = index % gridSize;
-        const x = (c / (gridSize - 1)) * 100;
-        const y = (r / (gridSize - 1)) * 100;
-        cell.style.backgroundSize = `${gridSize * 100}% ${gridSize * 100}%`;
+        const r = Math.floor(index / GRID_SIZE);
+        const c = index % GRID_SIZE;
+        const x = (c / (GRID_SIZE - 1)) * 100;
+        const y = (r / (GRID_SIZE - 1)) * 100;
+        cell.style.backgroundSize = `${GRID_SIZE * 100}% ${GRID_SIZE * 100}%`;
         cell.style.backgroundPosition = `${x}% ${y}%`;
       });
     }
-    const mapIndex = (cellKey) => {
-      const [r, c] = cellKey.split(',').map(Number);
-      return (r * 20) + c;
-    };
 
     const renderState = (idx) => {
-      cells.forEach((cell) => cell.classList.remove('is-active'));
-      effectiveStates[idx].cells.forEach((key) => {
-        const index = mapIndex(key);
-        if (cells[index]) cells[index].classList.add('is-active');
+      cells.forEach((cell) => {
+        cell.classList.remove('is-active');
+        cell.classList.add('is-hidden');
       });
-      captionEl.textContent = `Blocks: ${effectiveStates[idx].blocks} · Punctuation: ${effectiveStates[idx].value.toFixed(1)}`;
+      states[idx].cells.forEach((key) => {
+        const index = cellKeyToIndex(key);
+        if (cells[index]) {
+          cells[index].classList.add('is-active');
+          cells[index].classList.remove('is-hidden');
+        }
+      });
+      const state = states[idx];
+      const action = [
+        state.added.length ? `added ${state.added.join(' · ')}` : '',
+        state.removed.length ? `removed ${state.removed.join(' · ')}` : ''
+      ].filter(Boolean).join('; ') || 'no block change';
+      captionEl.textContent = `Session ${idx + 1}/${states.length} · ${state.date || 'No date'} · ${state.cells.length} visible · ${action}`;
     };
 
-    renderState(0);
+    const renderFinal = () => renderState(Math.max(0, states.length - 1));
     let timer = null;
-    playBtn.onclick = () => {
+    const play = () => {
       if (timer) return;
       let i = 0;
       playBtn.disabled = true;
       renderState(i);
       timer = setInterval(() => {
         i += 1;
-        if (i >= effectiveStates.length) {
+        if (i >= states.length) {
           clearInterval(timer);
           timer = null;
           playBtn.disabled = false;
+          renderFinal();
           return;
         }
         renderState(i);
       }, 450);
     };
+
+    renderFinal();
+    playBtn.onclick = play;
+    if (autoplay) play();
   };
   const img = new Image();
-  img.onload = () => applyImageAndRender({ ok: true, width: img.naturalWidth || 1, height: img.naturalHeight || 1 });
-  img.onerror = () => applyImageAndRender({ ok: false, width: 1, height: 1 });
+  img.onload = () => applyImageAndRender({ ok: true });
+  img.onerror = () => applyImageAndRender({ ok: false });
   img.src = imageUrl;
 }
   
@@ -580,7 +778,7 @@ visualizeBtn?.addEventListener('click', async () => {
   visualizeStartEl.value = allDates[0] || todayES();
   visualizeEndEl.value = allDates[allDates.length - 1] || todayES();
   populateVisualizeLanguages(analyticsRows);
-  renderVisualizeChart();
+  await renderVisualizeChart();
 });
 analyticsCloseBtn?.addEventListener('click', () => closeOverlay(analyticsOverlay));
 aboutCloseBtn?.addEventListener('click', () => closeOverlay(aboutOverlay));
@@ -660,6 +858,7 @@ startBtn?.addEventListener('click', async () => {
 analyticsViewBarsBtn?.addEventListener('click', () => { analyticsViewMode = 'bars'; analyticsViewBarsBtn.classList.add('active'); analyticsViewCumulativeBtn?.classList.remove('active'); renderAnalytics(); });
 analyticsViewCumulativeBtn?.addEventListener('click', () => { analyticsViewMode = 'cumulative'; analyticsViewCumulativeBtn.classList.add('active'); analyticsViewBarsBtn?.classList.remove('active'); renderAnalytics(); });
 
-visualizeForm?.addEventListener('submit', (event) => { event.preventDefault(); renderVisualizeChart(); });
-visualizeLanguageEl?.addEventListener('change', renderVisualizeChart);
-visualizeUseAllEl?.addEventListener('change', renderVisualizeChart);
+visualizeForm?.addEventListener('submit', async (event) => { event.preventDefault(); await renderVisualizeChart(); });
+visualizeLanguageEl?.addEventListener('change', () => renderVisualizeChart());
+visualizeUseAllEl?.addEventListener('change', () => renderVisualizeChart());
+visualizeEvolutionBtn?.addEventListener('click', () => renderVisualizeChart({ playEvolution: true }));
