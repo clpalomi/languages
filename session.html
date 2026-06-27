@@ -5,191 +5,66 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
 <title>Study Session</title>
 <style>
-  /* ===== Minimal tokens ===== */
-  :root{
-    --fg:#111; --muted:#6b7280; --bg:#fff; --border:#e5e7eb;
-    --brand:#6d28d9; --brand-2:#7c3aed; --accent:#22c55e; --danger:#ef4444;
-    --tap:48px; --r:14px; --measure:72ch;
-  }
-  @media (prefers-color-scheme: dark){
-    :root{ --fg:#e5e7eb; --muted:#9aa3b2; --bg:#0b0e14; --border:#262b36; }
-  }
-
-  /* ===== Base ===== */
-  *,*::before,*::after{ box-sizing:border-box }
-  html,body{ height:100% }
-  body{
-    margin:0; font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-    color:var(--fg); background:var(--bg);
-  }
-  .shell{ max-width:1100px; margin:0 auto; padding: clamp(10px, 2vw, 18px); }
-
-  /* ===== Header (minimal) ===== */
-  .hdr{
-    display:flex; align-items:center; justify-content:space-between; gap:12px;
-    padding:8px 0; position:sticky; top:0; background:var(--bg); z-index:20;
-    border-bottom:1px solid var(--border);
-  }
-  .brand{ font-weight:800; letter-spacing:-0.01em }
-  .hamburger{
-    inline-size: var(--tap); block-size: var(--tap); border:0; background:transparent; padding:0; cursor:pointer;
-    display:grid; place-items:center; border-radius:10px;
-  }
-  .hamburger:focus-visible{ outline:2px solid var(--brand) }
-  .hamburger .bars{ inline-size:24px; block-size:18px; position:relative }
-  .hamburger .bars::before,
-  .hamburger .bars::after,
-  .hamburger .bar{
-    content:""; position:absolute; left:0; right:0; height:2px; background:currentColor; border-radius:2px;
-  }
-  .hamburger .bar{ top:8px }
-  .hamburger .bars::before{ top:0 }
-  .hamburger .bars::after{ bottom:0 }
-
-  /* ===== Lessons drawer (mobile-first full width; compact on wider screens) ===== */
-  .drawer{
-    display:none; border-bottom:1px solid var(--border); background:var(--bg);
-    position: static; z-index:100;
-  }
-  .drawer.open{ display:block; }
-  @media (min-width:480px){
-    .hdr{ position:relative; z-index:101; }
-    .drawer{
-      position:absolute; top:100%; left:0;
-      border:1px solid var(--border); border-top:none;
-      border-radius:0 0 var(--r) var(--r);
-      box-shadow:0 14px 40px rgba(0,0,0,.12);
-      padding:8px 10px 10px;
-      inline-size:max-content; max-inline-size:90vw; min-inline-size:220px;
-    }
-  }
-  .lessons{ display:grid; gap:6px; padding:6px 0; }
-  .lesson{
-    min-height: calc(var(--tap) - 8px);
-    padding: 0 10px;
-    border:1px solid var(--border);
-    border-radius:10px;
-    background:transparent; color:var(--fg);
-    text-align:left; font-weight:700; cursor:pointer;
-    white-space:nowrap;
-  }
-  .lesson[disabled]{ opacity:.6; cursor:not-allowed }
-  .badge{ font-size:12px; color:var(--muted); margin-left:8px }
-  .sep{ border:none; border-top:1px solid var(--border); margin:6px 0; }
-
-  /* Drawer actions */
-  .menu-action{
-    min-height: calc(var(--tap) - 12px);
-    padding: 0 8px;
-    border:0; background:transparent; color:var(--fg);
-    text-align:left; font-weight:700; cursor:pointer;
-  }
-
-  /* ===== Reader (clean page) ===== */
-  .reader{ padding: clamp(10px, 3vw, 24px) 0; }
-  .page{
-    max-width:min(100%, var(--measure));
-    margin:0 auto;
-    background:#fff0; /* ultra clean */
-    color:var(--fg); font-family: Georgia, "Times New Roman", serif;
-    line-height:1.7; font-size: clamp(17px, 1.9vw, 19px);
-  }
-  .page h3{ margin:0 0 6px; font-weight:700; letter-spacing:-.01em }
-  .meta{ color:var(--muted); font-size:12px; margin:0 0 12px }
-  .page p{ margin:0 0 14px; text-align:justify; hyphens:auto }
-
-  .row{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
-  .btn{
-    min-height: var(--tap); padding:0 12px; border-radius:10px; border:1px solid var(--border);
-    background:transparent; color:var(--fg); font-weight:700; cursor:pointer;
-  }
-  .btn.primary{ border-color:transparent; background:linear-gradient(180deg, var(--brand-2), var(--brand)); color:#fff; }
-  .btn.danger{ border-color:transparent; background:linear-gradient(180deg, #f87171, var(--danger)); color:#fff; }
-  .muted{ color:var(--muted); font-size:12px }
-
-  .btn.btn-ghost{
-    min-height: var(--tap);
-    padding: 0 12px;
-    border-radius: 10px;
-    border: 1px solid var(--border);
-    background: transparent;
-    color: var(--fg);
-    font-weight: 700;
-    cursor: pointer;
-    opacity: .9;
-  }
-  .lesson-controls { margin-block: 8px 16px; }
-
-  /* Accessibility */
-  .sr-only{ position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden; }
-  @media (pointer:coarse){ .lesson, .btn, input[type="number"]{ min-height:52px } }
+:root{ --primary:#6d28d9; --primary-600:#7c3aed; --primary-400:#a78bfa; --accent:#22c55e; --bg-start:#f6f7ff; --bg-end:#f9fafb; --card-bg:rgba(255,255,255,.9); --radius:16px; --shadow-md:0 10px 30px rgba(17,24,39,.08); --muted:#6b7280; --border:#e5e7eb; --badge:#eef2ff; --text:#111827; --tap:48px; }
+  @media (prefers-color-scheme:dark){ :root{ --bg-start:#0f1117; --bg-end:#0b0e14; --card-bg:rgba(22,24,29,.78); --border:#2a2f39; --muted:#9aa3b2; --shadow-md:0 12px 40px rgba(0,0,0,.35); --badge:#151928; --text:#e5e7eb; } }
+  *,*::before,*::after{ box-sizing:border-box; }
+  body{ margin:0; padding:24px; min-height:100svh; font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; color:var(--text); background:radial-gradient(1000px 600px at -10% -10%,#eef2ff 0%,transparent 60%),radial-gradient(900px 500px at 110% -20%,#fce7f3 0%,transparent 60%),linear-gradient(var(--bg-start),var(--bg-end)); }
+  .shell{ max-width:1280px; margin:0 auto; display:grid; gap:20px; grid-template-columns:1fr; align-items:start; }
+  @media (min-width:1060px){ .shell{ grid-template-columns:260px 1fr; } }
+  .card{ border:1px solid var(--border); border-radius:24px; background:var(--card-bg); box-shadow:var(--shadow-md); backdrop-filter:blur(10px); }
+  .side-panel{ position:sticky; top:24px; display:grid; gap:14px; padding:18px; }
+  .brand-kicker{ font-size:12px; color:var(--muted); letter-spacing:.14em; text-transform:uppercase; font-weight:900; }
+  .brand-title{ margin:4px 0 0; font-size:28px; line-height:1; letter-spacing:-.05em; }
+  .hamburger,.menu-action,.lesson,.btn{ min-height:var(--tap); border-radius:12px; border:1px solid var(--border); background:rgba(255,255,255,.55); color:var(--text); font-weight:800; cursor:pointer; }
+  @media (prefers-color-scheme:dark){ .hamburger,.menu-action,.lesson,.btn{ background:rgba(17,19,24,.65); } }
+  .hamburger{ width:var(--tap); display:grid; place-items:center; }
+  .hamburger .bars{ width:24px; height:18px; position:relative; }
+  .hamburger .bars::before,.hamburger .bars::after,.hamburger .bar{ content:""; position:absolute; left:0; right:0; height:2px; background:currentColor; border-radius:2px; }
+  .hamburger .bar{ top:8px; }.hamburger .bars::before{ top:0; }.hamburger .bars::after{ bottom:0; }
+  .drawer{ display:none; }.drawer.open{ display:block; }.lessons{ display:grid; gap:8px; }.lesson,.menu-action{ width:100%; padding:0 12px; text-align:left; }.sep{ border:0; border-top:1px solid var(--border); width:100%; }
+  .page{ display:grid; gap:20px; }
+  .hero{ padding:24px; display:grid; gap:16px; background:linear-gradient(135deg,color-mix(in srgb,var(--primary-400) 13%,transparent),color-mix(in srgb,var(--accent) 8%,transparent)); }
+  .hero h1{ margin:0; font-size:clamp(34px,6vw,60px); line-height:.95; letter-spacing:-.06em; }
+  .hero p{ margin:0; color:var(--muted); max-width:74ch; line-height:1.65; }
+  .flow-card,.reader-card{ padding:24px; }
+  .section-kicker{ margin:0 0 6px; color:var(--muted); font-size:12px; font-weight:900; letter-spacing:.14em; text-transform:uppercase; }
+  h2,h3{ margin:0; letter-spacing:-.03em; }.muted{ color:var(--muted); font-size:13px; line-height:1.5; }.row{ display:flex; align-items:center; flex-wrap:wrap; gap:10px; }
+  .btn{ display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:0 14px; }.btn.primary,.btn.active{ border-color:transparent; background:linear-gradient(180deg,var(--primary-600),var(--primary)); color:#fff; }
+  .grid{ display:grid; gap:14px; margin-top:16px; }.two{ grid-template-columns:1fr; } @media (min-width:760px){ .two{ grid-template-columns:1fr 1fr; } }
+  .field{ display:grid; gap:7px; }.field label{ font-size:12px; font-weight:900; color:var(--muted); text-transform:uppercase; letter-spacing:.08em; }
+  input,select,textarea{ width:100%; border:1px solid var(--border); border-radius:14px; padding:12px 14px; background:color-mix(in srgb,var(--card-bg) 84%,transparent); color:var(--text); font:inherit; }
+  textarea{ resize:vertical; min-height:150px; }.status{ margin:12px 0 0; padding:12px; border:1px solid color-mix(in srgb,var(--accent) 28%,transparent); background:color-mix(in srgb,var(--accent) 8%,transparent); border-radius:12px; }
+  .reader-head{ display:flex; justify-content:space-between; gap:16px; align-items:flex-start; border-bottom:1px solid var(--border); padding-bottom:16px; margin-bottom:16px; }
+  .meta{ color:var(--muted); font-size:13px; margin-top:4px; }.study-reader{ display:grid; gap:12px; }
+  .study-line{ display:grid; grid-template-columns:auto 1fr; gap:12px; padding:14px; border:1px solid var(--border); border-radius:16px; background:color-mix(in srgb,#000 3%,transparent); }
+  .line-number{ width:30px; height:30px; display:grid; place-items:center; border-radius:999px; background:var(--badge); color:var(--primary-600); font-weight:900; font-size:12px; }
+  .study-line p{ margin:0; line-height:1.8; }.translation-line{ grid-column:2; color:var(--muted); font-size:14px; }
+  .word-token{ position:relative; display:inline; border:0; padding:1px 2px; margin:0; border-radius:6px; background:transparent; color:inherit; font:inherit; cursor:pointer; }
+  .word-token:hover{ background:color-mix(in srgb,var(--primary-400) 22%,transparent); }
+  .word-bubble{ position:absolute; z-index:5; left:0; bottom:calc(100% + 8px); min-width:220px; display:grid; gap:8px; padding:12px; border:1px solid var(--border); border-radius:14px; background:var(--card-bg); box-shadow:var(--shadow-md); font-family:Inter,system-ui,sans-serif; line-height:1.35; }
+  .word-bubble span{ color:var(--muted); font-size:13px; }.bubble-actions{ display:flex; gap:6px; flex-wrap:wrap; }.bubble-actions button{ border:1px solid var(--border); border-radius:999px; padding:6px 9px; background:transparent; color:var(--primary-600); font-weight:800; cursor:pointer; }
 </style>
-
 <script type="module" src="./js/session-page.js" defer></script>
 </head>
 <body>
   <div class="shell">
-    <!-- Header -->
-    <header class="hdr">
-      <button id="menu-btn" class="hamburger" aria-expanded="false" aria-controls="lesson-drawer" aria-label="Open lessons">
-        <span class="bars"><span class="bar"></span></span>
-      </button>
-      <div class="brand">Study Session</div>
-      <div></div>
-    </header>
-
-    <!-- Lessons Drawer -->
-    <nav id="lesson-drawer" class="drawer" aria-label="Lessons">
-      <div class="lessons" id="lessons-list">
-        <hr class="sep">
-        <button class="menu-action" id="menu-comeback">Come back</button>
-        <button class="menu-action" id="menu-signout">Sign out</button>
-      </div>
-    </nav>
-
-    <!-- Reader -->
-    <main class="reader" id="main">
-            <section aria-labelledby="private-session-heading" style="max-width:min(100%, var(--measure)); margin:0 auto 18px; border:1px solid var(--border); border-radius:12px; padding:14px;">
-        <h3 id="private-session-heading" style="margin-top:0;">Private Session</h3>
-        <p class="meta">Choose how to start. Both paths support loading new material from your own text.</p>
-        <div class="row">
-          <button class="btn primary" id="mode-new-language">Start studying a new language</button>
-          <button class="btn" id="mode-existing-language">Study an already added language</button>
-        </div>
-
-        <div id="panel-new-language" style="display:none; margin-top:12px;">
-          <label for="new-language-name" class="muted">Language name</label>
-          <input id="new-language-name" type="text" placeholder="e.g., Polish"/>
-          <label for="new-language-text" class="muted" style="margin-top:8px; display:block;">Text to ingest (max 1200 words)</label>
-          <textarea id="new-language-text" rows="6" style="width:100%; border:1px solid var(--border); border-radius:10px; padding:10px;" placeholder="Paste text here..."></textarea>
-          <div class="row" style="margin-top:8px;">
-            <button class="btn primary" id="load-new-material-new">Load new material</button>
-          </div>
-        </div>
-
-        <div id="panel-existing-language" style="display:none; margin-top:12px;">
-          <label for="existing-language-select" class="muted">Your added languages</label>
-          <select id="existing-language-select" style="width:100%; min-height:44px; border:1px solid var(--border); border-radius:10px; padding:0 10px;">
-            <option value="">Select a language</option>
-          </select>
-          <label for="existing-language-text" class="muted" style="margin-top:8px; display:block;">Optional new text to ingest (max 1200 words)</label>
-          <textarea id="existing-language-text" rows="6" style="width:100%; border:1px solid var(--border); border-radius:10px; padding:10px;" placeholder="Paste text here..."></textarea>
-          <div class="row" style="margin-top:8px;">
-            <button class="btn" id="load-new-material-existing">Load new material</button>
-            <button class="btn primary" id="start-existing-lesson">Start lesson</button>
-          </div>
-        </div>
-        <p class="muted" id="private-session-status" style="margin-top:10px;"></p>
+    <aside class="card side-panel" aria-label="Private session navigation">
+      <div><div class="brand-kicker">Private • Contextual</div><h1 class="brand-title">Study Session</h1></div>
+      <button id="menu-btn" class="hamburger" aria-expanded="false" aria-controls="lesson-drawer" aria-label="Open lessons"><span class="bars"><span class="bar"></span></span></button>
+      <nav id="lesson-drawer" class="drawer" aria-label="Lessons"><div class="lessons" id="lessons-list"><hr class="sep"><button class="menu-action" id="menu-comeback">Come back</button><button class="menu-action" id="menu-signout">Sign out</button></div></nav>
+    </aside>
+    <main class="page" id="main">
+      <section class="card hero"><p class="section-kicker">New private session</p><h1>Build a language lesson from your own words, sentences, or stories.</h1><p>Start a new language or continue an existing one. Load original-language material with translations, then study by clicking words for contextual translation bubbles. Grammar boxes, generated stories, and downloadable PNG/XLSX outputs are planned as the next implementation phase.</p></section>
+      <section class="card flow-card" aria-labelledby="private-session-heading">
+        <p class="section-kicker">Session setup</p><h2 id="private-session-heading">Choose your path</h2><p class="muted">Translations default to English, but any translation language is supported.</p>
+        <div class="row" style="margin-top:14px;"><button class="btn primary" id="mode-new-language">Start a new language</button><button class="btn" id="mode-existing-language">Study stored language</button></div>
+        <div id="panel-new-language" class="grid" hidden><div class="field"><label for="new-language-name">Language name</label><input id="new-language-name" type="text" placeholder="e.g., Polish"/></div></div>
+        <div id="panel-existing-language" class="grid" hidden><div class="field"><label for="existing-language-select">Your languages</label><select id="existing-language-select"><option value="">Select a language</option></select></div><button class="btn primary" id="start-existing-lesson" type="button">Start latest stored material</button></div>
+        <div class="grid two"><div class="field"><label for="material-title">Material / lesson title</label><input id="material-title" type="text" placeholder="e.g., Restaurant phrases"/></div><div class="field"><label for="translation-language">Translation language</label><input id="translation-language" type="text" value="English"/></div><div class="field"><label for="material-type">Material type</label><select id="material-type"><option value="mixed">Words and sentences</option><option value="word_list">Word list</option><option value="sentence_list">Sentence list</option><option value="short_story">Short story</option></select></div></div>
+        <div class="field" style="margin-top:14px;"><label for="material-text">Load material</label><textarea id="material-text" placeholder="One item per line. Use original | translation, original => translation, or a tab. Complete sentences and short-story lines are supported."></textarea><p class="muted">Example: kot | cat · Lubię kawę. | I like coffee.</p></div>
+        <div class="row" style="margin-top:12px;"><button class="btn primary" id="load-material">Load material / lesson</button></div><p class="status muted" id="private-session-status" aria-live="polite"></p>
       </section>
-      
-      <article class="page" id="reader-page" aria-labelledby="reader-heading">
-        <h3 id="reader-heading">Choose a lesson</h3>
-        <div class="meta" id="reader-meta">No lesson loaded</div>
-        <!-- NEW: dedicated mount the JS will replace -->
-        <div id="reader-content">
-          <p>Add a language in Private Session, then open the menu to start its latest lesson.</p>
-        </div>
-      </article>
+      <article class="card reader-card" id="reader-page" aria-labelledby="reader-heading"><div class="reader-head"><div><p class="section-kicker">Study reader</p><h3 id="reader-heading">No material loaded</h3><div class="meta" id="reader-meta">Create or select a language to begin</div></div></div><div id="reader-content"><p class="muted">Loaded words and sentences will appear here. Click any word to open its translation bubble.</p></div></article>
     </main>
   </div>
 </body>
