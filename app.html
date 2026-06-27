@@ -127,21 +127,29 @@
     .analytics-line-legend{ display:flex; flex-wrap:wrap; gap:8px 12px; margin-top:10px; }
     .analytics-line-item{ display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:700; }
     .analytics-line-chart{ width:100%; height:auto; display:block; }
-    .visualize-wrap{ display:grid; gap:12px; }
-    .visualize-note{ font-size:12px; color:var(--muted); }
-    .visualize-legend{ display:flex; gap:16px; flex-wrap:wrap; font-size:12px; font-weight:700; }
-    .grid-anim-controls{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
-    .grid-anim-controls button{ border:1px solid var(--border); background:var(--card-bg); color:var(--text); border-radius:10px; padding:6px 10px; font-weight:700; cursor:pointer; }
+    .visualize-wrap{ display:grid; gap:18px; margin-top:14px; }
+    .visualize-stage{ display:grid; grid-template-columns:minmax(260px, 420px) minmax(150px, 1fr); gap:22px; align-items:start; }
+    @media (max-width:760px){ .visualize-stage{ grid-template-columns:1fr; } }
+    .visualize-side{ display:grid; gap:18px; align-content:start; padding:18px; border:1px solid var(--border); border-radius:18px; background:linear-gradient(135deg,color-mix(in srgb,var(--primary-400) 10%,transparent),color-mix(in srgb,var(--accent) 8%,transparent)); }
+    .score-card{ display:grid; gap:4px; }
+    .score-label{ color:var(--muted); font-size:12px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
+    .score-value{ font-size:clamp(42px, 8vw, 72px); line-height:.95; font-weight:900; color:var(--primary-700); }
+    .score-caption{ color:var(--muted); font-size:12px; }
+    .grid-anim-controls{ display:grid; gap:8px; }
+    .grid-anim-controls-title{ font-size:12px; font-weight:800; color:var(--muted); text-transform:uppercase; letter-spacing:.08em; }
+    .grid-anim-buttons{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    .grid-anim-controls button{ border:1px solid var(--border); background:var(--card-bg); color:var(--text); border-radius:999px; width:42px; height:42px; display:grid; place-items:center; font-size:18px; font-weight:800; cursor:pointer; box-shadow:var(--shadow); }
+    .grid-anim-controls button:hover{ border-color:color-mix(in srgb,var(--primary-600) 45%,var(--border)); color:var(--primary-700); }
+    .grid-anim-controls button:disabled{ opacity:.55; cursor:not-allowed; box-shadow:none; }
     .visualize-grid-shell{ display:grid; gap:10px; }
-    .visualize-grid{ position:relative; display:grid; grid-template-columns:repeat(20, minmax(0, 1fr)); gap:1px; max-width:420px; background:color-mix(in srgb,var(--border) 75%,transparent); border:1px solid var(--border); border-radius:14px; overflow:hidden; }
+    .visualize-grid{ position:relative; display:grid; grid-template-columns:repeat(20, minmax(0, 1fr)); gap:1px; width:min(100%, 420px); background:color-mix(in srgb,var(--border) 75%,transparent); border:1px solid var(--border); border-radius:18px; overflow:hidden; box-shadow:var(--shadow); }
     .grid-cell{ aspect-ratio:1/1; background:color-mix(in srgb,#000 10%,transparent); }
     .grid-cell.is-active{ background-image:var(--grid-image); background-repeat:no-repeat; background-size:var(--grid-bg-size, contain); background-position:var(--grid-bg-position, center); }
     .grid-cell.is-hidden{ opacity:.18; }
-    .block-history-table{ width:100%; border-collapse:separate; border-spacing:0; overflow:hidden; border:1px solid var(--border); border-radius:14px; font-size:12px; }
-    .block-history-table th,.block-history-table td{ padding:8px 10px; border-bottom:1px solid var(--border); text-align:left; }
-    .block-history-table tr:last-child td{ border-bottom:0; }
-    .block-history-table .right{ text-align:right; }
-    .block-history-empty{ border:1px dashed var(--border); border-radius:14px; padding:12px; color:var(--muted); font-size:12px; }
+    .punctuation-chart{ border:1px solid var(--border); border-radius:18px; padding:14px; background:color-mix(in srgb,#000 3%,transparent); }
+    .punctuation-chart-title{ font-size:13px; font-weight:800; margin-bottom:8px; }
+    .punctuation-chart svg{ width:100%; height:auto; display:block; }
+    .axis-label{ fill:var(--muted); font-size:11px; font-weight:700; }
   </style>
 </head>
 <body>
