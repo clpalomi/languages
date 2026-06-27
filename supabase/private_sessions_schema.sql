@@ -90,10 +90,27 @@ create table if not exists public.language_materials (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   user_language_id uuid not null references public.user_languages(id) on delete cascade,
+  title text,
+  material_type text not null default 'mixed' check (material_type in ('mixed', 'word_list', 'sentence_list', 'short_story')),
+  translation_language text not null default 'English',
   source_text text not null,
   source_word_count integer not null check (source_word_count >= 0 and source_word_count <= 1200),
   created_at timestamptz not null default now()
 );
+
+alter table public.language_materials
+  add column if not exists title text,
+  add column if not exists material_type text not null default 'mixed',
+  add column if not exists translation_language text not null default 'English';
+
+alter table public.language_materials
+  drop constraint if exists language_materials_material_type_check;
+alter table public.language_materials
+  add constraint language_materials_material_type_check
+  check (material_type in ('mixed', 'word_list', 'sentence_list', 'short_story'));
+
+comment on table public.language_materials is
+  'User-scoped uploaded lessons/materials: word lists, sentence lists, mixed material, or short stories. Keep this table.';
 
 create table if not exists public.material_sentences (
   id uuid primary key default gen_random_uuid(),
@@ -101,6 +118,7 @@ create table if not exists public.material_sentences (
   material_id uuid not null references public.language_materials(id) on delete cascade,
   position integer not null check (position >= 0),
   source_text text not null,
+  translation_text text,
   english_text text,
   created_at timestamptz not null default now(),
   unique (material_id, position)
@@ -113,6 +131,7 @@ create table if not exists public.material_words (
   source_word text not null,
   normalized_word text not null,
   english_text text,
+  translation_text text,
   frequency integer not null default 1 check (frequency > 0),
   created_at timestamptz not null default now(),
   unique (material_id, normalized_word)
@@ -126,6 +145,12 @@ create table if not exists public.language_lessons (
   content_json jsonb not null,
   created_at timestamptz not null default now()
 );
+
+comment on table public.language_lessons is
+  'Legacy generated-lesson cache. The redesigned private session reads from language_materials/material_sentences/material_words; this table can be erased after migrating any wanted content into language_materials.';
+
+alter table public.material_sentences add column if not exists translation_text text;
+alter table public.material_words add column if not exists translation_text text;
 
 create or replace function public.owned_by_current_user_with_private_session_access(row_user_id uuid)
 returns boolean
@@ -172,18 +197,36 @@ with check (
 );
 
 drop policy if exists "Allow-listed users read their sentences" on public.material_sentences;
-create policy "Allow-listed users read their sentences"
+drop policy if exists "Allow-listed users manage their sentences" on public.material_sentences;
+create policy "Allow-listed users manage their sentences"
 on public.material_sentences
-for select
+for all
 to authenticated
-using (public.owned_by_current_user_with_private_session_access(user_id));
+using (public.owned_by_current_user_with_private_session_access(user_id))
+with check (
+  public.owned_by_current_user_with_private_session_access(user_id)
+  and exists (
+    select 1 from public.language_materials material
+    where material.id = material_id
+      and material.user_id = auth.uid()
+  )
+);
 
 drop policy if exists "Allow-listed users read their words" on public.material_words;
-create policy "Allow-listed users read their words"
+drop policy if exists "Allow-listed users manage their words" on public.material_words;
+create policy "Allow-listed users manage their words"
 on public.material_words
-for select
+for all
 to authenticated
-using (public.owned_by_current_user_with_private_session_access(user_id));
+using (public.owned_by_current_user_with_private_session_access(user_id))
+with check (
+  public.owned_by_current_user_with_private_session_access(user_id)
+  and exists (
+    select 1 from public.language_materials material
+    where material.id = material_id
+      and material.user_id = auth.uid()
+  )
+);
 
 drop policy if exists "Allow-listed users read their lessons" on public.language_lessons;
 create policy "Allow-listed users read their lessons"
@@ -202,8 +245,8 @@ revoke all on public.language_lessons from anon;
 
 grant select, insert, update, delete on public.user_languages to authenticated;
 grant select, insert on public.language_materials to authenticated;
-grant select on public.material_sentences to authenticated;
-grant select on public.material_words to authenticated;
+grant select, insert, update, delete on public.material_sentences to authenticated;
+grant select, insert, update, delete on public.material_words to authenticated;
 grant select on public.language_lessons to authenticated;
 
 -- Language block history for the 20×20 visualization grid.
