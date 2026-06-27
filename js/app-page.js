@@ -573,23 +573,34 @@ function replayBlockHistory(historyRows) {
   return states.length ? states : [{ date: '', punctuation: 0, cells: [], added: [], removed: [] }];
 }
 
-function renderBlockHistoryTable(historyRows) {
-  if (!historyRows.length) return '<div class="block-history-empty">No block history is stored for this language yet.</div>';
-  const recentRows = sortHistoryRows(historyRows).slice(-8).reverse();
-  return `<table class="block-history-table" aria-label="Recent block history">
-    <thead><tr><th>Session</th><th>Date</th><th>Added</th><th>Removed</th><th class="right">Punctuation</th></tr></thead>
-    <tbody>${recentRows.map((row) => {
-      const added = normalizePositionList(row.position_added_block);
-      const removed = normalizePositionList(row.position_removed_block);
-      return `<tr>
-        <td>${escapeHtml(row.session_sequence || '')}</td>
-        <td>${escapeHtml(row.date || '')}</td>
-        <td>${added.length ? escapeHtml(added.join(' · ')) : '—'}</td>
-        <td>${removed.length ? escapeHtml(removed.join(' · ')) : '—'}</td>
-        <td class="right">${Number(row.punctuation || 0).toFixed(1)}</td>
-      </tr>`;
-    }).join('')}</tbody>
-  </table>`;
+function renderPunctuationChart(states) {
+  if (!states.length) return '';
+  const width = 720;
+  const height = 220;
+  const pad = { top: 18, right: 18, bottom: 42, left: 58 };
+  const plotW = width - pad.left - pad.right;
+  const plotH = height - pad.top - pad.bottom;
+  const values = states.map((state) => Number(state.punctuation || 0));
+  const maxValue = Math.max(1, ...values);
+  const xFor = (index) => pad.left + (states.length === 1 ? plotW : (index / (states.length - 1)) * plotW);
+  const yFor = (value) => pad.top + plotH - ((value / maxValue) * plotH);
+  const points = values.map((value, index) => `${xFor(index).toFixed(1)},${yFor(value).toFixed(1)}`).join(' ');
+  const areaPoints = `${pad.left},${pad.top + plotH} ${points} ${pad.left + plotW},${pad.top + plotH}`;
+  const yTicks = [0, maxValue / 2, maxValue];
+
+  return `<div class="punctuation-chart" aria-label="Punctuation over time">
+    <div class="punctuation-chart-title">Punctuation over time</div>
+    <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Line chart with time on the horizontal axis and punctuation on the vertical axis">
+      <line x1="${pad.left}" y1="${pad.top}" x2="${pad.left}" y2="${pad.top + plotH}" stroke="currentColor" opacity="0.22" />
+      <line x1="${pad.left}" y1="${pad.top + plotH}" x2="${pad.left + plotW}" y2="${pad.top + plotH}" stroke="currentColor" opacity="0.22" />
+      ${yTicks.map((tick) => `<g><line x1="${pad.left - 4}" y1="${yFor(tick).toFixed(1)}" x2="${pad.left + plotW}" y2="${yFor(tick).toFixed(1)}" stroke="currentColor" opacity="0.08" /><text x="${pad.left - 10}" y="${(yFor(tick) + 4).toFixed(1)}" text-anchor="end" class="axis-label">${tick.toFixed(tick >= 10 ? 0 : 1)}</text></g>`).join('')}
+      <polygon points="${areaPoints}" fill="currentColor" opacity="0.08" />
+      <polyline points="${points}" fill="none" stroke="var(--primary-600)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
+      ${values.map((value, index) => `<circle cx="${xFor(index).toFixed(1)}" cy="${yFor(value).toFixed(1)}" r="4" fill="var(--accent)" />`).join('')}
+      <text x="${pad.left + plotW / 2}" y="${height - 8}" text-anchor="middle" class="axis-label">Time</text>
+      <text x="14" y="${pad.top + plotH / 2}" text-anchor="middle" class="axis-label" transform="rotate(-90 14 ${pad.top + plotH / 2})">Punctuation</text>
+    </svg>
+  </div>`;
 }
 
 async function renderVisualizeChart({ playEvolution = false } = {}) {
@@ -620,16 +631,25 @@ async function renderVisualizeChart({ playEvolution = false } = {}) {
 
   const states = replayBlockHistory(filteredRows);
   const finalState = states[states.length - 1];
-  visualizeStatusEl.textContent = filteredRows.length
-    ? `${filteredRows.length} stored sessions loaded. Showing the last grid organization.`
-    : 'No block-history rows match this configuration.';
+  visualizeStatusEl.textContent = filteredRows.length ? '' : 'No block-history rows match this configuration.';
 
   visualizeChartEl.innerHTML = `<div class="visualize-wrap">
-    <div class="visualize-note">Language: <strong>${escapeHtml(language)}</strong>. The grid shows the latest stored visible blocks; pale cells are currently not visible. Use “Visualize evolution” to replay the stored LIFO history.</div>
-    <div class="visualize-legend"><span>Visible blocks: ${finalState.cells.length}</span><span>Not visible: ${GRID_TOTAL_CELLS - finalState.cells.length}</span><span>Punctuation: ${finalState.punctuation.toFixed(1)}</span></div>
-    <div class="grid-anim-controls"><button id="visualize-grid-play" type="button">Visualize evolution</button><span id="visualize-grid-caption">Final state · ${escapeHtml(finalState.date || 'No date')}</span></div>
-    <div class="visualize-grid-shell"><div class="visualize-grid" id="visualize-grid" aria-label="20 by 20 block grid"></div></div>
-    ${renderBlockHistoryTable(filteredRows)}
+    <div class="visualize-stage">
+      <div class="visualize-grid-shell"><div class="visualize-grid" id="visualize-grid" aria-label="20 by 20 block grid"></div></div>
+      <aside class="visualize-side" aria-label="Visualization controls and score">
+        <div class="score-card"><div class="score-label">Punctuation</div><div class="score-value" id="visualize-score">${finalState.punctuation.toFixed(1)}</div><div class="score-caption">Current score</div></div>
+        <div class="grid-anim-controls">
+          <div class="grid-anim-controls-title">Score</div>
+          <div class="grid-anim-buttons">
+            <button id="visualize-grid-rewind" type="button" aria-label="Rewind evolution" title="Rewind">⟲</button>
+            <button id="visualize-grid-play" type="button" aria-label="Play evolution" title="Play">▶</button>
+            <button id="visualize-grid-pause" type="button" aria-label="Pause evolution" title="Pause">Ⅱ</button>
+          </div>
+          <span id="visualize-grid-caption" class="score-caption" aria-live="polite">Final state</span>
+        </div>
+      </aside>
+    </div>
+    ${renderPunctuationChart(states)}
   </div>`;
 
   setupGridAnimation(states, { autoplay: playEvolution });
@@ -638,8 +658,11 @@ async function renderVisualizeChart({ playEvolution = false } = {}) {
 function setupGridAnimation(states, { autoplay = false } = {}) {
   const gridEl = qs('#visualize-grid');
   const playBtn = qs('#visualize-grid-play');
+  const pauseBtn = qs('#visualize-grid-pause');
+  const rewindBtn = qs('#visualize-grid-rewind');
   const captionEl = qs('#visualize-grid-caption');
-  if (!gridEl || !playBtn || !captionEl) return;
+  const scoreEl = qs('#visualize-score');
+  if (!gridEl || !playBtn || !pauseBtn || !rewindBtn || !captionEl || !scoreEl) return;
 
   const imageUrl = 'images/flag_georgia.png';
   const applyImageAndRender = (imageMeta) => {
@@ -657,48 +680,51 @@ function setupGridAnimation(states, { autoplay = false } = {}) {
       });
     }
 
+    let currentIndex = Math.max(0, states.length - 1);
+    let timer = null;
+    
     const renderState = (idx) => {
+      currentIndex = Math.max(0, Math.min(idx, states.length - 1));
       cells.forEach((cell) => {
         cell.classList.remove('is-active');
         cell.classList.add('is-hidden');
       });
-      states[idx].cells.forEach((key) => {
+      states[currentIndex].cells.forEach((key) => {
         const index = cellKeyToIndex(key);
         if (cells[index]) {
           cells[index].classList.add('is-active');
           cells[index].classList.remove('is-hidden');
         }
       });
-      const state = states[idx];
-      const action = [
-        state.added.length ? `added ${state.added.join(' · ')}` : '',
-        state.removed.length ? `removed ${state.removed.join(' · ')}` : ''
-      ].filter(Boolean).join('; ') || 'no block change';
-      captionEl.textContent = `Session ${idx + 1}/${states.length} · ${state.date || 'No date'} · ${state.cells.length} visible · ${action}`;
+      const state = states[currentIndex];
+      scoreEl.textContent = Number(state.punctuation || 0).toFixed(1);
+      captionEl.textContent = `Step ${currentIndex + 1} of ${states.length}`;
     };
 
-    const renderFinal = () => renderState(Math.max(0, states.length - 1));
-    let timer = null;
+    const stop = () => {
+      if (!timer) return;
+      clearInterval(timer);
+      timer = null;
+      playBtn.disabled = false;
+    };
+
     const play = () => {
       if (timer) return;
-      let i = 0;
+      if (currentIndex >= states.length - 1) renderState(0);
       playBtn.disabled = true;
-      renderState(i);
       timer = setInterval(() => {
-        i += 1;
-        if (i >= states.length) {
-          clearInterval(timer);
-          timer = null;
-          playBtn.disabled = false;
-          renderFinal();
+        if (currentIndex >= states.length - 1) {
+          stop();
           return;
         }
-        renderState(i);
-      }, 450);
+        renderState(currentIndex + 1);
+      }, 550);
     };
 
-    renderFinal();
+    renderState(currentIndex);
     playBtn.onclick = play;
+    pauseBtn.onclick = stop;
+    rewindBtn.onclick = () => { stop(); renderState(0); };
     if (autoplay) play();
   };
   const img = new Image();
@@ -706,7 +732,8 @@ function setupGridAnimation(states, { autoplay = false } = {}) {
   img.onerror = () => applyImageAndRender({ ok: false });
   img.src = imageUrl;
 }
-  
+
+
 async function loadAllEntries() {
   let query = supabase
     .from('entries')
