@@ -121,36 +121,57 @@ document.addEventListener("DOMContentLoaded", () => {
       <section class="study-line">
         <div class="line-number">${index + 1}</div>
         <p>${tokenize(item.source)}</p>
-        ${item.translation ? `<p class="translation-line">${escapeHtml(item.translation)}</p>` : ""}
+        ${item.translation ? `<p class="translation-line"><strong>Translation:</strong> ${escapeHtml(item.translation)}</p>` : ""}
+        ${item.gloss ? `<p class="gloss-line"><strong>Gloss:</strong> ${escapeHtml(item.gloss)}</p>` : ""}
       </section>`).join("")}</div>`;
   }
 
-  function showBubble(token) {
+  function closeTransientBubble() {
     activeBubble?.remove();
+    activeBubble = null;
+  }
+
+  function showBubble(token) {
+    closeTransientBubble();
     const word = token.dataset.word;
     const translation = wordTranslations.get(word) || "Translation not loaded yet.";
     const bubble = document.createElement("div");
     bubble.className = "word-bubble";
     const meta = wordMetadata.get(word) || {};
     const actions = [];
-    if (meta.part_of_speech === "verb" || meta.conjugation_table) actions.push(`<button type="button" data-kind="verb">Verb forms</button>`);
-    if (["noun", "pronoun", "adjective"].includes(meta.part_of_speech) || meta.declension_table) actions.push(`<button type="button" data-kind="noun">Declensions</button>`);
+    if (meta.part_of_speech === "verb" || meta.conjugation_table) actions.push(`<button type="button" data-kind="verb">Conjugation</button>`);
+    if (["noun", "pronoun", "adjective"].includes(meta.part_of_speech) || meta.declension_table) actions.push(`<button type="button" data-kind="noun">Declension</button>`);
     bubble.innerHTML = `<strong>${escapeHtml(token.textContent)}</strong><span>${escapeHtml(translation)}</span>${actions.length ? `<div class="bubble-actions">${actions.join("")}</div>` : ""}`;
     token.appendChild(bubble);
     activeBubble = bubble;
   }
 
-  contentEl?.addEventListener("click", (event) => {
+  function showGrammarBox(button) {
+    const token = button.closest(".word-token");
+    const word = token?.dataset.word || normalizeWord(token?.textContent || "word");
+    const meta = wordMetadata.get(word) || {};
+    const isVerb = button.dataset.kind === "verb";
+    const details = isVerb ? meta.conjugation_table : meta.declension_table;
+    document.querySelectorAll(".grammar-box").forEach((node) => node.remove());
+    const box = document.createElement("div");
+    box.className = "grammar-box";
+    box.innerHTML = `<button type="button" class="grammar-close" aria-label="Close grammar details">×</button><strong>${escapeHtml(isVerb ? "Conjugation" : "Declension")} for ${escapeHtml(token?.textContent || word)}</strong><pre>${escapeHtml(details || `${isVerb ? "Conjugation" : "Declension"} details are not available yet. Generate a study session to enrich this word.`)}</pre>`;
+    token?.appendChild(box);
+    closeTransientBubble();
+  }
+
+  contentEl?.addEventListener("mouseover", (event) => {
     const token = event.target.closest(".word-token");
-    if (token) { showBubble(token); return; }
+    if (token && !event.relatedTarget?.closest?.(".word-token")) showBubble(token);
+  });
+  contentEl?.addEventListener("mouseout", (event) => {
+    if (event.target.closest(".word-token") && !event.relatedTarget?.closest?.(".word-token")) closeTransientBubble();
+  });
+  contentEl?.addEventListener("click", (event) => {
+    const close = event.target.closest(".grammar-close");
+    if (close) { close.closest(".grammar-box")?.remove(); return; }
     const grammar = event.target.closest("[data-kind]");
-    if (grammar) {
-      const word = grammar.closest(".word-token")?.textContent?.trim() || "word";
-      const normalized = normalizeWord(word);
-      const meta = wordMetadata.get(normalized) || {};
-      const details = grammar.dataset.kind === "verb" ? meta.conjugation_table : meta.declension_table;
-      alert(details || `${grammar.dataset.kind === "verb" ? "Verb conjugation" : "Noun declension"} details are not available yet for: ${word}. Generate a study session to enrich word metadata.`);
-    }
+    if (grammar) { event.preventDefault(); event.stopPropagation(); showGrammarBox(grammar); }
   });
 
   async function ensureUserLanguage(languageName) {
