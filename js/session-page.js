@@ -22,6 +22,11 @@ document.addEventListener("DOMContentLoaded", () => {
   const materialTextEl = document.querySelector("#material-text");
   const loadMaterialBtn = document.querySelector("#load-material");
   const startExistingLessonBtn = document.querySelector("#start-existing-lesson");
+  const wordSelectionEl = document.querySelector("#word-selection");
+  const wordSelectionListEl = document.querySelector("#word-selection-list");
+  const selectAllWordsBtn = document.querySelector("#select-all-words");
+  const clearWordsBtn = document.querySelector("#clear-words");
+  const generateSessionBtn = document.querySelector("#generate-session");
   const menuComeback = document.querySelector("#menu-comeback");
   const menuSignout = document.querySelector("#menu-signout");
   
@@ -29,9 +34,12 @@ document.addEventListener("DOMContentLoaded", () => {
   let currentUser = null;
   let userLanguages = [];
   let wordTranslations = new Map();
+  let wordMetadata = new Map();
   let activeBubble = null;
+  let currentLanguageId = null;
+  let currentLanguageName = "";
   
-  const controls = [modeNewBtn, modeExistingBtn, newLanguageNameEl, existingLanguageSelectEl, materialTitleEl, translationLanguageEl, materialTypeEl, materialTextEl, loadMaterialBtn, startExistingLessonBtn];
+  const controls = [modeNewBtn, modeExistingBtn, newLanguageNameEl, existingLanguageSelectEl, materialTitleEl, translationLanguageEl, materialTypeEl, materialTextEl, loadMaterialBtn, startExistingLessonBtn, selectAllWordsBtn, clearWordsBtn, generateSessionBtn];
 
   const setStatus = (message) => { if (statusEl) statusEl.textContent = message; };
   const escapeHtml = (value) => String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
@@ -92,8 +100,15 @@ document.addEventListener("DOMContentLoaded", () => {
     }).join("");
   }
 
-  function renderStudyMaterial({ title, language, translationLanguage, items }) {
+  function renderStudyMaterial({ title, language, translationLanguage, items, words = [] }) {
     wordTranslations = new Map();
+    wordMetadata = new Map();
+    words.forEach((word) => {
+      const key = normalizeWord(word.normalized_word || word.source_word);
+      if (!key) return;
+      if (word.translation_text || word.english_text) wordTranslations.set(key, word.translation_text || word.english_text);
+      wordMetadata.set(key, word);
+    });
     items.forEach((item) => {
       if (item.translation) wordTranslations.set(normalizeWord(item.source), item.translation);
       String(item.source).split(/\s+/).forEach((word) => {
@@ -116,7 +131,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const translation = wordTranslations.get(word) || "Translation not loaded yet.";
     const bubble = document.createElement("div");
     bubble.className = "word-bubble";
-    bubble.innerHTML = `<strong>${escapeHtml(token.textContent)}</strong><span>${escapeHtml(translation)}</span><div class="bubble-actions"><button type="button" data-kind="verb">Verb forms</button><button type="button" data-kind="noun">Declensions</button></div>`;
+    const meta = wordMetadata.get(word) || {};
+    const actions = [];
+    if (meta.part_of_speech === "verb" || meta.conjugation_table) actions.push(`<button type="button" data-kind="verb">Verb forms</button>`);
+    if (["noun", "pronoun", "adjective"].includes(meta.part_of_speech) || meta.declension_table) actions.push(`<button type="button" data-kind="noun">Declensions</button>`);
+    bubble.innerHTML = `<strong>${escapeHtml(token.textContent)}</strong><span>${escapeHtml(translation)}</span>${actions.length ? `<div class="bubble-actions">${actions.join("")}</div>` : ""}`;
     token.appendChild(bubble);
     activeBubble = bubble;
   }
@@ -127,7 +146,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const grammar = event.target.closest("[data-kind]");
     if (grammar) {
       const word = grammar.closest(".word-token")?.textContent?.trim() || "word";
-      alert(`${grammar.dataset.kind === "verb" ? "Verb conjugation" : "Noun declension"} boxes will be generated automatically in the next implementation phase for: ${word}`);
+      const normalized = normalizeWord(word);
+      const meta = wordMetadata.get(normalized) || {};
+      const details = grammar.dataset.kind === "verb" ? meta.conjugation_table : meta.declension_table;
+      alert(details || `${grammar.dataset.kind === "verb" ? "Verb conjugation" : "Noun declension"} details are not available yet for: ${word}. Generate a study session to enrich word metadata.`);
     }
   });
 
@@ -145,17 +167,41 @@ document.addEventListener("DOMContentLoaded", () => {
     existingLanguageSelectEl.innerHTML = `<option value="">Select a language</option>` + userLanguages.map((row) => `<option value="${row.id}">${escapeHtml(row.language_name)}</option>`).join("");
   }
 
+  async function loadWordsForSelection(languageId) {
+    const { data, error } = await supabase.from("material_words").select("id, source_word, normalized_word, translation_text, english_text, part_of_speech, conjugation_table, declension_table, frequency").eq("user_id", currentUser.id).eq("user_language_id", languageId).order("source_word", { ascending: true });
+    if (error) throw error;
+    if (!wordSelectionListEl) return data || [];
+    wordSelectionListEl.innerHTML = (data || []).map((row) => `<label class="word-choice"><input type="checkbox" value="${escapeHtml(row.normalized_word)}"><span>${escapeHtml(row.source_word)}</span><small>${escapeHtml(row.translation_text || row.english_text || "")}</small></label>`).join("") || `<p class="muted">No words loaded yet.</p>`;
+    if (wordSelectionEl) wordSelectionEl.hidden = !(data || []).length;
+    return data || [];
+  }
+
+  function selectedWords() {
+    return [...(wordSelectionListEl?.querySelectorAll("input:checked") || [])].map((input) => input.value);
+  }
+
+  async function generateStudySession() {
+    if (!currentLanguageId) throw new Error("Select or load a language first.");
+    setStatus("Generating a private study session…");
+    const { data, error } = await supabase.functions.invoke("generate-study-session", { body: { userLanguageId: currentLanguageId, selectedWords: selectedWords(), useAll: selectedWords().length === 0 } });
+    if (error) throw error;
+    renderStudyMaterial({ title: data.title || "Generated study session", language: currentLanguageName, translationLanguage: data.translationLanguage || "English", items: data.items || [], words: data.words || [] });
+    setStatus("Generated a study set. Use Generate more after finishing this collection.");
+  }
+
   async function loadLatestMaterial(languageId) {
     const { data: materials, error } = await supabase.from("language_materials").select("id, title, material_type, translation_language, user_language_id, user_languages(language_name)").eq("user_id", currentUser.id).eq("user_language_id", languageId).order("created_at", { ascending: false }).limit(1);
     if (error) throw error;
     if (!materials?.length) throw new Error("No material yet for this language. Load words, sentences, or a story first.");
     const material = materials[0];
+    currentLanguageId = languageId; currentLanguageName = material.user_languages?.language_name || "";
     const { data: sentences, error: sentenceError } = await supabase.from("material_sentences").select("source_text, translation_text, position").eq("material_id", material.id).order("position", { ascending: true });
     if (sentenceError) throw sentenceError;
-    const { data: words, error: wordError } = await supabase.from("material_words").select("source_word, translation_text").eq("material_id", material.id);
+    const { data: words, error: wordError } = await supabase.from("material_words").select("id, source_word, normalized_word, translation_text, english_text, part_of_speech, conjugation_table, declension_table, frequency").eq("material_id", material.id);
     if (wordError) throw wordError;
     const items = sentences?.length ? sentences.map((row) => ({ source: row.source_text, translation: row.translation_text || "" })) : (words || []).map((row) => ({ source: row.source_word, translation: row.translation_text || "" }));
-    renderStudyMaterial({ title: material.title || "Latest private lesson", language: material.user_languages?.language_name || "", translationLanguage: material.translation_language, items });
+    renderStudyMaterial({ title: material.title || "Latest private lesson", language: material.user_languages?.language_name || "", translationLanguage: material.translation_language, items, words });
+    await loadWordsForSelection(languageId);
   }
 
   async function ingestMaterialForLanguage(languageRow) {
@@ -170,9 +216,11 @@ document.addEventListener("DOMContentLoaded", () => {
     if (sentenceRows.length) { const { error } = await supabase.from("material_sentences").insert(sentenceRows); if (error) throw error; }
     const wordMap = new Map();
     items.forEach((item) => String(item.source).split(/\s+/).forEach((word) => { const n = normalizeWord(word); if (!n) return; const existing = wordMap.get(n) || { source_word: word.replace(/^\p{P}+|\p{P}+$/gu, ""), translation_text: item.translation || null, frequency: 0 }; existing.frequency += 1; wordMap.set(n, existing); }));
-    const wordRows = [...wordMap.entries()].map(([normalized_word, row]) => ({ user_id: currentUser.id, material_id: material.id, source_word: row.source_word, normalized_word, translation_text: row.translation_text, frequency: row.frequency }));
+    const wordRows = [...wordMap.entries()].map(([normalized_word, row]) => ({ user_id: currentUser.id, user_language_id: languageRow.id, material_id: material.id, source_word: row.source_word, normalized_word, translation_text: row.translation_text, frequency: row.frequency }));
     if (wordRows.length) { const { error } = await supabase.from("material_words").insert(wordRows); if (error) throw error; }
-    renderStudyMaterial({ title: materialTitleEl.value || "Private lesson", language: languageRow.language_name, translationLanguage: translationLanguageEl.value || "English", items });
+    currentLanguageId = languageRow.id; currentLanguageName = languageRow.language_name;
+    renderStudyMaterial({ title: materialTitleEl.value || "Private lesson", language: languageRow.language_name, translationLanguage: translationLanguageEl.value || "English", items, words: wordRows });
+    await loadWordsForSelection(languageRow.id);
     setStatus(`Loaded ${items.length} line(s) and ${wordRows.length} unique word(s).`);
   }
 
@@ -198,7 +246,10 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (error) { setStatus(error.message || "Failed to load material."); }
   });
 
-  startExistingLessonBtn?.addEventListener("click", async () => { try { if (!existingLanguageSelectEl.value) throw new Error("Select an existing language."); await loadLatestMaterial(existingLanguageSelectEl.value); setStatus("Latest material loaded."); } catch (error) { setStatus(error.message || "Could not start lesson."); } });
+  startExistingLessonBtn?.addEventListener("click", async () => { try { if (!existingLanguageSelectEl.value) throw new Error("Select an existing language."); await loadLatestMaterial(existingLanguageSelectEl.value); setStatus("Latest material loaded. Select words or generate with all material."); } catch (error) { setStatus(error.message || "Could not start lesson."); } });
+  selectAllWordsBtn?.addEventListener("click", () => wordSelectionListEl?.querySelectorAll("input[type='checkbox']").forEach((input) => { input.checked = true; }));
+  clearWordsBtn?.addEventListener("click", () => wordSelectionListEl?.querySelectorAll("input[type='checkbox']").forEach((input) => { input.checked = false; }));
+  generateSessionBtn?.addEventListener("click", () => generateStudySession().catch((error) => setStatus(error.message || "Could not generate study session.")));
 
   async function initPrivateSession() {
     const { data: sessionData } = await supabase.auth.getSession();
