@@ -128,6 +128,7 @@ create table if not exists public.material_words (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   material_id uuid not null references public.language_materials(id) on delete cascade,
+  user_language_id uuid references public.user_languages(id) on delete cascade,
   source_word text not null,
   normalized_word text not null,
   english_text text,
@@ -151,6 +152,28 @@ comment on table public.language_lessons is
 
 alter table public.material_sentences add column if not exists translation_text text;
 alter table public.material_words add column if not exists translation_text text;
+alter table public.material_words add column if not exists user_language_id uuid references public.user_languages(id) on delete cascade;
+alter table public.material_words add column if not exists part_of_speech text;
+alter table public.material_words add column if not exists conjugation_table text;
+alter table public.material_words add column if not exists declension_table text;
+
+update public.material_words word
+set user_language_id = material.user_language_id
+from public.language_materials material
+where word.material_id = material.id
+  and word.user_language_id is null;
+
+create table if not exists public.generated_study_sessions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  user_language_id uuid not null references public.user_languages(id) on delete cascade,
+  title text not null default 'Generated study session',
+  selected_words text[] not null default '{}',
+  content_json jsonb not null,
+  created_at timestamptz not null default now()
+);
+
+alter table public.generated_study_sessions enable row level security;
 
 create or replace function public.owned_by_current_user_with_private_session_access(row_user_id uuid)
 returns boolean
@@ -170,6 +193,7 @@ alter table public.language_materials enable row level security;
 alter table public.material_sentences enable row level security;
 alter table public.material_words enable row level security;
 alter table public.language_lessons enable row level security;
+alter table public.generated_study_sessions enable row level security;
 
 -- Private-session data policies: users must both own the row and be allow-listed.
 drop policy if exists "Allow-listed users manage their languages" on public.user_languages;
@@ -228,6 +252,14 @@ with check (
   )
 );
 
+drop policy if exists "Allow-listed users manage generated study sessions" on public.generated_study_sessions;
+create policy "Allow-listed users manage generated study sessions"
+on public.generated_study_sessions
+for all
+to authenticated
+using (public.owned_by_current_user_with_private_session_access(user_id))
+with check (public.owned_by_current_user_with_private_session_access(user_id));
+
 drop policy if exists "Allow-listed users read their lessons" on public.language_lessons;
 create policy "Allow-listed users read their lessons"
 on public.language_lessons
@@ -242,12 +274,14 @@ revoke all on public.language_materials from anon;
 revoke all on public.material_sentences from anon;
 revoke all on public.material_words from anon;
 revoke all on public.language_lessons from anon;
+revoke all on public.generated_study_sessions from anon;
 
 grant select, insert, update, delete on public.user_languages to authenticated;
 grant select, insert on public.language_materials to authenticated;
 grant select, insert, update, delete on public.material_sentences to authenticated;
 grant select, insert, update, delete on public.material_words to authenticated;
 grant select on public.language_lessons to authenticated;
+grant select, insert on public.generated_study_sessions to authenticated;
 
 -- Language block history for the 20×20 visualization grid.
 -- Run this section in the Supabase SQL editor before using the updated
