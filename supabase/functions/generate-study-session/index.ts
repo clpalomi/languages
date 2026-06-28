@@ -20,31 +20,42 @@ Deno.serve(async (req) => {
     if (!user) throw new Error("Sign in before generating a private study session.");
 
     const { userLanguageId, selectedWords = [], useAll = true } = await req.json();
+    const MAX_SELECTED_WORDS = 40;
+    const MAX_CONTEXT_WORDS = 50;
+    const MAX_CONTEXT_SENTENCES = 24;
     const { data: allowed } = await userClient.rpc("has_private_session_access");
     if (!allowed) throw new Error("Private sessions are limited to approved accounts.");
 
     const { data: lang, error: langError } = await userClient.from("user_languages").select("id, language_name").eq("id", userLanguageId).single();
     if (langError) throw langError;
 
-    let query = userClient.from("material_words").select("source_word, normalized_word, translation_text, english_text, frequency").eq("user_language_id", userLanguageId).order("frequency", { ascending: false }).limit(60);
-    if (!useAll && selectedWords.length) query = query.in("normalized_word", selectedWords.slice(0, 80));
+    let query = userClient.from("material_words").select("source_word, normalized_word, translation_text, english_text, frequency").eq("user_language_id", userLanguageId).order("frequency", { ascending: false }).limit(MAX_CONTEXT_WORDS);
+    if (!useAll && selectedWords.length) query = query.in("normalized_word", selectedWords.slice(0, MAX_SELECTED_WORDS));
     const { data: words, error: wordsError } = await query;
     if (wordsError) throw wordsError;
     if (!words?.length) throw new Error("Load words or sentences for this language before generating a session.");
 
-    const { data: sentences, error: sentenceError } = await userClient.from("material_sentences").select("source_text, translation_text, language_materials!inner(user_language_id)").eq("language_materials.user_language_id", userLanguageId).limit(80);
+    const { data: sentences, error: sentenceError } = await userClient.from("material_sentences").select("source_text, translation_text, language_materials!inner(user_language_id)").eq("language_materials.user_language_id", userLanguageId).limit(MAX_CONTEXT_SENTENCES);
     if (sentenceError) throw sentenceError;
 
     const openai = new OpenAI({ apiKey: Deno.env.get("OPENAI_API_KEY") });
     const completion = await openai.chat.completions.create({
       model: Deno.env.get("OPENAI_MODEL") || "gpt-4.1-mini",
       response_format: { type: "json_object" },
+      max_tokens: Number(Deno.env.get("OPENAI_MAX_TOKENS") || 1800),
       messages: [
-        { role: "system", content: "Create compact language study sessions from user-provided material. Return strict JSON with title, translationLanguage, items array of {source, translation}, and words array of {source_word, normalized_word, translation_text, part_of_speech, conjugation_table, declension_table}. Keep grammar tables concise; only fill when applicable." },
+        { role: "system", content: "Create compact personalized language study sessions from user-provided material. Return strict JSON with title, translationLanguage, items array of {source, translation, gloss}, and words array of {source_word, normalized_word, translation_text, part_of_speech, conjugation_table, declension_table}. Always generate 6-10 short study sentences in items unless fewer source words are available. Each item must include a natural sentence, a sentence translation, and a concise word-by-word gloss. Keep output compact for token limits. Grammar tables must be concise; only fill conjugation_table for verbs and declension_table for nouns/pronouns/adjectives when applicable." },
         { role: "user", content: JSON.stringify({ language: lang.language_name, words, sentences, requestedWords: useAll ? "all" : selectedWords }) },
       ],
     });
     const content = JSON.parse(completion.choices[0]?.message?.content || "{}");
+    if (!Array.isArray(content.items) || !content.items.length) {
+      content.items = (sentences || []).slice(0, 8).map((sentence) => ({
+        source: sentence.source_text,
+        translation: sentence.translation_text || "",
+        gloss: "",
+      }));
+    }
     const rows = (content.words || []).filter((w: Record<string, string>) => w.normalized_word);
     for (const row of rows) {
       await admin.from("material_words").update({ part_of_speech: row.part_of_speech || null, conjugation_table: row.conjugation_table || null, declension_table: row.declension_table || null, translation_text: row.translation_text || null }).eq("user_id", user.id).eq("user_language_id", userLanguageId).eq("normalized_word", row.normalized_word);
@@ -55,5 +66,3 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ error: error.message }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });
-supabase/private_sessions_schema.sql
-supabase/private_sessions_schema.sql
