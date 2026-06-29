@@ -29,6 +29,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const generateSessionBtn = document.querySelector("#generate-session");
   const menuComeback = document.querySelector("#menu-comeback");
   const menuSignout = document.querySelector("#menu-signout");
+  const tokenCountEl = document.querySelector("#session-token-count");
   
   const MAX_INGEST_WORDS = 1200;
   let currentUser = null;
@@ -36,6 +37,10 @@ document.addEventListener("DOMContentLoaded", () => {
   let wordTranslations = new Map();
   let wordMetadata = new Map();
   let activeBubble = null;
+  let activeBubbleToken = null;
+  let sessionTokensSpent = 0;
+  let currentRenderedItems = [];
+  let currentTranslationLanguage = "English";
   let currentLanguageId = null;
   let currentLanguageName = "";
   
@@ -46,6 +51,13 @@ document.addEventListener("DOMContentLoaded", () => {
   const normalizeWord = (value) => String(value ?? "").toLocaleLowerCase().normalize("NFKC").replace(/^\p{P}+|\p{P}+$/gu, "");
   const countWords = (text) => (text || "").trim().split(/\s+/).filter(Boolean).length;
 
+  function addTokenUsage(usage) {
+    const spent = Number(usage?.total_tokens || 0);
+    if (!Number.isFinite(spent) || spent <= 0) return;
+    sessionTokensSpent += spent;
+    if (tokenCountEl) tokenCountEl.textContent = sessionTokensSpent.toLocaleString();
+  }
+  
   function toggleDrawer(open) {
     const isOpen = open ?? !drawer.classList.contains("open");
     drawer?.classList.toggle("open", isOpen);
@@ -109,19 +121,15 @@ document.addEventListener("DOMContentLoaded", () => {
       if (word.translation_text || word.english_text) wordTranslations.set(key, word.translation_text || word.english_text);
       wordMetadata.set(key, word);
     });
-    items.forEach((item) => {
-      if (item.translation) wordTranslations.set(normalizeWord(item.source), item.translation);
-      String(item.source).split(/\s+/).forEach((word) => {
-        const n = normalizeWord(word);
-        if (n && item.translation && !wordTranslations.has(n)) wordTranslations.set(n, item.translation);
-      });
-    });
+    currentRenderedItems = items || [];
+    currentTranslationLanguage = translationLanguage || "English";
     setBars({ title, language, level: `translation: ${translationLanguage || "English"}` });
     contentEl.innerHTML = `<div class="study-reader">${items.map((item, index) => `
       <section class="study-line">
         <div class="line-number">${index + 1}</div>
         <p>${tokenize(item.source)}</p>
         ${item.translation ? `<p class="translation-line"><strong>Translation:</strong> ${escapeHtml(item.translation)}</p>` : ""}
+        <div class="gloss-actions"><button class="btn" type="button" data-gloss-index="${index}">Gloss</button></div>
         ${item.gloss ? `<p class="gloss-line"><strong>Gloss:</strong> ${escapeHtml(item.gloss)}</p>` : ""}
       </section>`).join("")}</div>`;
   }
@@ -129,9 +137,11 @@ document.addEventListener("DOMContentLoaded", () => {
   function closeTransientBubble() {
     activeBubble?.remove();
     activeBubble = null;
+    activeBubbleToken = null;
   }
 
   function showBubble(token) {
+    if (activeBubbleToken === token && activeBubble) return;
     closeTransientBubble();
     const word = token.dataset.word;
     const translation = wordTranslations.get(word) || "Translation not loaded yet.";
@@ -144,6 +154,7 @@ document.addEventListener("DOMContentLoaded", () => {
     bubble.innerHTML = `<strong>${escapeHtml(token.textContent)}</strong><span>${escapeHtml(translation)}</span>${actions.length ? `<div class="bubble-actions">${actions.join("")}</div>` : ""}`;
     token.appendChild(bubble);
     activeBubble = bubble;
+    activeBubbleToken = token;
   }
 
   function showGrammarBox(button) {
@@ -155,25 +166,52 @@ document.addEventListener("DOMContentLoaded", () => {
     document.querySelectorAll(".grammar-box").forEach((node) => node.remove());
     const box = document.createElement("div");
     box.className = "grammar-box";
-    box.innerHTML = `<button type="button" class="grammar-close" aria-label="Close grammar details">×</button><strong>${escapeHtml(isVerb ? "Conjugation" : "Declension")} for ${escapeHtml(token?.textContent || word)}</strong><pre>${escapeHtml(details || `${isVerb ? "Conjugation" : "Declension"} details are not available yet. Generate a study session to enrich this word.`)}</pre>`;
+    const heading = isVerb ? "Conjugation" : "Declension / forms";
+    const fallback = `${heading} details are not available yet. Generate a study session to enrich this word.`;
+    box.innerHTML = `<button type="button" class="grammar-close" aria-label="Close grammar details">×</button><strong>${escapeHtml(heading)} for ${escapeHtml(token?.textContent || word)}</strong><pre>${escapeHtml(details || fallback)}</pre>`;
     token?.appendChild(box);
     closeTransientBubble();
   }
 
-  contentEl?.addEventListener("mouseover", (event) => {
+  contentEl?.addEventListener("pointerover", (event) => {
     const token = event.target.closest(".word-token");
-    if (token && !event.relatedTarget?.closest?.(".word-token")) showBubble(token);
+    if (token) showBubble(token);
   });
-  contentEl?.addEventListener("mouseout", (event) => {
-    if (event.target.closest(".word-token") && !event.relatedTarget?.closest?.(".word-token")) closeTransientBubble();
+  contentEl?.addEventListener("pointerout", (event) => {
+    if (!activeBubbleToken) return;
+    const next = event.relatedTarget;
+    if (next?.closest?.(".word-token") === activeBubbleToken || next?.closest?.(".word-bubble")) return;
+    if (event.target.closest(".study-line") && !next?.closest?.(".study-line")) closeTransientBubble();
   });
   contentEl?.addEventListener("click", (event) => {
     const close = event.target.closest(".grammar-close");
     if (close) { close.closest(".grammar-box")?.remove(); return; }
     const grammar = event.target.closest("[data-kind]");
-    if (grammar) { event.preventDefault(); event.stopPropagation(); showGrammarBox(grammar); }
+    if (grammar) { event.preventDefault(); event.stopPropagation(); showGrammarBox(grammar); return; }
+    const glossButton = event.target.closest("[data-gloss-index]");
+    if (glossButton) { event.preventDefault(); generateGloss(glossButton).catch((error) => setStatus(error.message || "Could not generate gloss.")); }
   });
 
+  async function generateGloss(button) {
+    if (!currentLanguageId) throw new Error("Select or load a language first.");
+    const index = Number(button.dataset.glossIndex);
+    const item = currentRenderedItems[index];
+    if (!item?.source) throw new Error("No sentence available for glossing.");
+    button.disabled = true;
+    button.textContent = "Generating gloss…";
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-study-session", { body: { action: "gloss", userLanguageId: currentLanguageId, source: item.source, translation: item.translation || "", translationLanguage: currentTranslationLanguage } });
+      if (error) throw error;
+      item.gloss = data.gloss || "Gloss unavailable.";
+      addTokenUsage(data.usage);
+      renderStudyMaterial({ title: titleEl?.textContent || "Study material", language: currentLanguageName, translationLanguage: currentTranslationLanguage, items: currentRenderedItems, words: [...wordMetadata.values()] });
+      setStatus("Generated a linguistic gloss for the selected sentence.");
+    } finally {
+      button.disabled = false;
+      button.textContent = "Gloss";
+    }
+  }
+  
   async function ensureUserLanguage(languageName) {
     const normalized = languageName.trim();
     const { data, error } = await supabase.from("user_languages").upsert([{ user_id: currentUser.id, language_name: normalized }], { onConflict: "user_id,language_name" }).select("id, language_name").single();
@@ -206,6 +244,7 @@ document.addEventListener("DOMContentLoaded", () => {
     setStatus("Generating a private study session…");
     const { data, error } = await supabase.functions.invoke("generate-study-session", { body: { userLanguageId: currentLanguageId, selectedWords: selectedWords(), useAll: selectedWords().length === 0 } });
     if (error) throw error;
+    addTokenUsage(data.usage);
     renderStudyMaterial({ title: data.title || "Generated study session", language: currentLanguageName, translationLanguage: data.translationLanguage || "English", items: data.items || [], words: data.words || [] });
     setStatus("Generated a study set. Use Generate more after finishing this collection.");
   }
