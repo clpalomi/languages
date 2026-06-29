@@ -19,7 +19,7 @@ Deno.serve(async (req) => {
     const user = auth.user;
     if (!user) throw new Error("Sign in before generating a private study session.");
 
-    const { userLanguageId, selectedWords = [], useAll = true } = await req.json();
+    const { userLanguageId, selectedWords = [], useAll = true, action = "session", source = "", translation = "", translationLanguage = "English" } = await req.json();
     const MAX_SELECTED_WORDS = 40;
     const MAX_CONTEXT_WORDS = 50;
     const MAX_CONTEXT_SENTENCES = 24;
@@ -28,6 +28,23 @@ Deno.serve(async (req) => {
 
     const { data: lang, error: langError } = await userClient.from("user_languages").select("id, language_name").eq("id", userLanguageId).single();
     if (langError) throw langError;
+
+    const openai = new OpenAI({ apiKey: Deno.env.get("OPENAI_API_KEY") });
+
+    if (action === "gloss") {
+      if (!source) throw new Error("Choose a sentence before generating a gloss.");
+      const completion = await openai.chat.completions.create({
+        model: Deno.env.get("OPENAI_MODEL") || "gpt-4.1-mini",
+        response_format: { type: "json_object" },
+        max_tokens: Number(Deno.env.get("OPENAI_GLOSS_MAX_TOKENS") || 500),
+        messages: [
+          { role: "system", content: "Return strict JSON with a single key gloss. Produce an interlinear-style linguistic gloss for the source sentence, following standard linguistics principles: align morphemes where practical, use Leipzig-style grammatical abbreviations (e.g. NOM, ACC, DAT, GEN, INS, VOC, PST, IPFV, PFV, 1SG, 3PL), mark stems and affixes with hyphens, and keep it concise. Do not add explanations outside JSON." },
+          { role: "user", content: JSON.stringify({ language: lang.language_name, source, translation, translationLanguage }) },
+        ],
+      });
+      const content = JSON.parse(completion.choices[0]?.message?.content || "{}");
+      return new Response(JSON.stringify({ gloss: content.gloss || "", usage: completion.usage || null }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
 
     let query = userClient.from("material_words").select("source_word, normalized_word, translation_text, english_text, frequency").eq("user_language_id", userLanguageId).order("frequency", { ascending: false }).limit(MAX_CONTEXT_WORDS);
     if (!useAll && selectedWords.length) query = query.in("normalized_word", selectedWords.slice(0, MAX_SELECTED_WORDS));
@@ -38,13 +55,12 @@ Deno.serve(async (req) => {
     const { data: sentences, error: sentenceError } = await userClient.from("material_sentences").select("source_text, translation_text, language_materials!inner(user_language_id)").eq("language_materials.user_language_id", userLanguageId).limit(MAX_CONTEXT_SENTENCES);
     if (sentenceError) throw sentenceError;
 
-    const openai = new OpenAI({ apiKey: Deno.env.get("OPENAI_API_KEY") });
     const completion = await openai.chat.completions.create({
       model: Deno.env.get("OPENAI_MODEL") || "gpt-4.1-mini",
       response_format: { type: "json_object" },
       max_tokens: Number(Deno.env.get("OPENAI_MAX_TOKENS") || 1800),
       messages: [
-        { role: "system", content: "Create compact personalized language study sessions from user-provided material. Return strict JSON with title, translationLanguage, items array of {source, translation, gloss}, and words array of {source_word, normalized_word, translation_text, part_of_speech, conjugation_table, declension_table}. Always generate 6-10 short study sentences in items unless fewer source words are available. Each item must include a natural sentence, a sentence translation, and a concise word-by-word gloss. Keep output compact for token limits. Grammar tables must be concise; only fill conjugation_table for verbs and declension_table for nouns/pronouns/adjectives when applicable." },
+        { role: "system", content: "Create compact personalized language study sessions from user-provided material. Return strict JSON with title, translationLanguage, items array of {source, translation}, and words array of {source_word, normalized_word, translation_text, part_of_speech, conjugation_table, declension_table}. Always generate 6-10 short study sentences in items unless fewer source words are available. Each item must include a natural sentence and a sentence translation. Do not generate glosses during session creation; glosses are generated later on demand. Keep output compact for token limits. For every word used in the generated sentences, provide a distinct contextual word translation. Grammar tables must be concise; fill conjugation_table for verbs and declension_table for nouns/pronouns/adjectives when applicable. Declension tables should list the relevant language-specific cases/forms one per line, including cases such as nominative, accusative, genitive, dative, instrumental, locative, vocative, etc. when they apply." },
         { role: "user", content: JSON.stringify({ language: lang.language_name, words, sentences, requestedWords: useAll ? "all" : selectedWords }) },
       ],
     });
@@ -61,6 +77,7 @@ Deno.serve(async (req) => {
       await admin.from("material_words").update({ part_of_speech: row.part_of_speech || null, conjugation_table: row.conjugation_table || null, declension_table: row.declension_table || null, translation_text: row.translation_text || null }).eq("user_id", user.id).eq("user_language_id", userLanguageId).eq("normalized_word", row.normalized_word);
     }
     await admin.from("generated_study_sessions").insert({ user_id: user.id, user_language_id: userLanguageId, title: content.title || "Generated study session", selected_words: selectedWords, content_json: content });
+    content.usage = completion.usage || null;
     return new Response(JSON.stringify(content), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (error) {
     return new Response(JSON.stringify({ error: error.message }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
