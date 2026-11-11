@@ -2,14 +2,25 @@
 
 ## Product direction
 
-Private Session is now a learner-owned study space that matches the main app's card-based visual system. The entry flow is:
+Private Session is a learner-owned reading workspace. The interface keeps the existing language, material, vocabulary, and generation logic while making the next action explicit.
 
-1. Start a new language, or choose a stored language.
-2. Load a material/lesson. A lesson is simply uploaded material.
-3. Upload lines as `original | translation`, `original => translation`, tab-separated pairs, words, complete sentences, or short-story lines.
-4. Study the material in the reader. Clicking a word opens a translation bubble.
+1. Returning learners continue a language and open its latest material; adding a language is the secondary path. Language navigation stays visible on desktop and collapses on mobile.
+2. New material uses the existing parser. A live preview shows exactly what will be saved, including missing translations, and checks the existing 1,200-word import limit before writing.
+3. Opening material collapses setup and focuses the reader. Translations are visible by default; learners can hide them and reveal individual sentences.
+4. Word translations open with click, tap, Enter, or Space. Escape and explicit close controls restore focus. Grammar details use a modal dialog, presented as a bottom sheet on mobile.
+5. Practice vocabulary comes from all stored material for the language. No selection preserves `useAll: true`; selecting words preserves the existing `selectedWords` payload. The UI makes the existing 40-word selected limit explicit. With all vocabulary, the backend uses up to 50 words ordered by frequency.
+6. Saving, opening, generation, and grammar requests have local pending, success, and error feedback. Pending actions prevent duplicate submission. Grammar explanations update only their sentence to preserve focus, scroll, and translation visibility.
 
-Future implementation should extend the same reader by generating contextual sentences and short stories from the lesson words, and by generating non-persisted grammar boxes for verb conjugations, noun declensions, or other language-specific morphology. Those generated boxes should have download actions for PNG and XLSX exports, but should not be stored by default.
+Imported sentence translations continue to be copied to word metadata by the existing ingestion logic. The reader labels those copies as sentence translations rather than precise word definitions. Generated practice, contextual metadata, token accounting, access rules, tables, and function requests keep their existing behavior. Token usage is available in a secondary disclosure. Reader visibility and vocabulary search are presentation state; they do not introduce scoring or a scheduling algorithm.
+
+The reader uses a restrained purple visual system, readable source text, subtle sentence separators, explicit focus styles, light/dark themes, and a mobile layout. Grammar explanations are described in an optional reader help disclosure.
+
+### Design references
+
+- [Progressive disclosure](https://www.nngroup.com/articles/progressive-disclosure/): collapse setup and advanced controls during reading.
+- [Usability heuristics](https://www.nngroup.com/articles/ten-usability-heuristics/): make scope, action state, and recovery explicit.
+- [WCAG keyboard access](https://www.w3.org/WAI/WCAG22/Understanding/keyboard.html): native word controls and keyboard-accessible dialogs.
+- [WCAG status messages](https://www.w3.org/WAI/WCAG22/Understanding/status-messages.html): announce local asynchronous outcomes.
 
 ## Supabase tables to keep
 
