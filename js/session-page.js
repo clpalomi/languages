@@ -1,6 +1,6 @@
 import { supabase } from "./client.js";
 
-window.APP_CONFIG = Object.assign({ COMEBACK_URL: "" }, window.APP_CONFIG || {});
+window.APP_CONFIG = Object.assign({ COMEBACK_URL: "./app.html" }, window.APP_CONFIG || {});
 
 document.addEventListener("DOMContentLoaded", () => {
   const menuBtn = document.querySelector("#menu-btn");
@@ -24,7 +24,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const startExistingLessonBtn = document.querySelector("#start-existing-lesson");
   const wordSelectionEl = document.querySelector("#word-selection");
   const wordSelectionListEl = document.querySelector("#word-selection-list");
-  const selectAllWordsBtn = document.querySelector("#select-all-words");
+  const wordCountEl = document.querySelector("#practice-word-count");
+  const remainingEl = document.querySelector("#practice-remaining");
   const clearWordsBtn = document.querySelector("#clear-words");
   const generateSessionBtn = document.querySelector("#generate-session");
   const menuComeback = document.querySelector("#menu-comeback");
@@ -32,6 +33,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const tokenCountEl = document.querySelector("#session-token-count");
   
   const MAX_INGEST_WORDS = 1200;
+  const MAX_PRACTICE_WORDS = 5;
   let currentUser = null;
   let userLanguages = [];
   let wordTranslations = new Map();
@@ -39,12 +41,14 @@ document.addEventListener("DOMContentLoaded", () => {
   let activeBubble = null;
   let activeBubbleToken = null;
   let sessionTokensSpent = 0;
-  let currentRenderedItems = [];
+  let generating = false;
+  let materialRevision = 0;
+  let remainingAttempts = null;
   let currentTranslationLanguage = "English";
   let currentLanguageId = null;
   let currentLanguageName = "";
   
-  const controls = [modeNewBtn, modeExistingBtn, newLanguageNameEl, existingLanguageSelectEl, materialTitleEl, translationLanguageEl, materialTypeEl, materialTextEl, loadMaterialBtn, startExistingLessonBtn, selectAllWordsBtn, clearWordsBtn, generateSessionBtn];
+  const controls = [modeNewBtn, modeExistingBtn, newLanguageNameEl, existingLanguageSelectEl, materialTitleEl, translationLanguageEl, materialTypeEl, materialTextEl, loadMaterialBtn, startExistingLessonBtn, clearWordsBtn, generateSessionBtn];
 
   const setStatus = (message) => { if (statusEl) statusEl.textContent = message; };
   const escapeHtml = (value) => String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
@@ -82,6 +86,8 @@ document.addEventListener("DOMContentLoaded", () => {
     newPanel.hidden = !isNew;
     existingPanel.hidden = isNew;
     modeNewBtn?.classList.toggle("active", isNew);
+    modeNewBtn?.setAttribute("aria-pressed", String(isNew));
+    modeExistingBtn?.setAttribute("aria-pressed", String(!isNew));
     modeExistingBtn?.classList.toggle("active", !isNew);
   }
   modeNewBtn?.addEventListener("click", () => openMode("new"));
@@ -113,6 +119,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function renderStudyMaterial({ title, language, translationLanguage, items, words = [] }) {
+    materialRevision += 1;
     wordTranslations = new Map();
     wordMetadata = new Map();
     words.forEach((word) => {
@@ -121,7 +128,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (word.translation_text || word.english_text) wordTranslations.set(key, word.translation_text || word.english_text);
       wordMetadata.set(key, word);
     });
-    currentRenderedItems = items || [];
+    closeTransientBubble();
     currentTranslationLanguage = translationLanguage || "English";
     setBars({ title, language, level: `translation: ${translationLanguage || "English"}` });
     contentEl.innerHTML = `<div class="study-reader">${items.map((item, index) => `
@@ -129,8 +136,6 @@ document.addEventListener("DOMContentLoaded", () => {
         <div class="line-number">${index + 1}</div>
         <p>${tokenize(item.source)}</p>
         ${item.translation ? `<p class="translation-line"><strong>Translation:</strong> ${escapeHtml(item.translation)}</p>` : ""}
-        <div class="gloss-actions"><button class="btn" type="button" data-gloss-index="${index}">Gloss</button></div>
-        ${item.gloss ? `<p class="gloss-line"><strong>Gloss:</strong> ${escapeHtml(item.gloss)}</p>` : ""}
       </section>`).join("")}</div>`;
   }
 
@@ -188,32 +193,66 @@ document.addEventListener("DOMContentLoaded", () => {
     if (close) { close.closest(".grammar-box")?.remove(); return; }
     const grammar = event.target.closest("[data-kind]");
     if (grammar) { event.preventDefault(); event.stopPropagation(); showGrammarBox(grammar); return; }
-    const glossButton = event.target.closest("[data-gloss-index]");
-    if (glossButton) { event.preventDefault(); generateGloss(glossButton).catch((error) => setStatus(error.message || "Could not generate gloss.")); }
+    const word = event.target.closest(".word-token");
+    if (word) showBubble(word);
+  });
+  contentEl.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") closeTransientBubble();
+    if (event.target.matches(".word-token") && ["Enter", " "].includes(event.key)) {
+      event.preventDefault();
+      showBubble(event.target);
+    }
   });
 
-  async function generateGloss(button) {
-    if (!currentLanguageId) throw new Error("Select or load a language first.");
-    const index = Number(button.dataset.glossIndex);
-    const item = currentRenderedItems[index];
-    if (!item?.source) throw new Error("No sentence available for glossing.");
-    button.disabled = true;
-    button.textContent = "Generating gloss…";
-    try {
-      const { data, error } = await supabase.functions.invoke("generate-study-session", { body: { action: "gloss", userLanguageId: currentLanguageId, source: item.source, translation: item.translation || "", translationLanguage: currentTranslationLanguage } });
-      if (error) throw error;
-      item.gloss = data.gloss || "Gloss unavailable.";
-      addTokenUsage(data.usage);
-      renderStudyMaterial({ title: titleEl?.textContent || "Study material", language: currentLanguageName, translationLanguage: currentTranslationLanguage, items: currentRenderedItems, words: [...wordMetadata.values()] });
-      setStatus("Generated a linguistic gloss for the selected sentence.");
-    } finally {
-      button.disabled = false;
-      button.textContent = "Gloss";
-    }
+  function renderPractice({ title, grammar, translationLanguage, items, words }, language) {
+    closeTransientBubble();
+    setBars({ title, language, level: `Practice in ${language} and ${translationLanguage}` });
+    const [example, ...exercises] = items;
+    contentEl.innerHTML = `
+      <section class="practice-prep" aria-labelledby="grammar-heading">
+        <h3 id="grammar-heading">Grammar focus</h3>
+        <p>${escapeHtml(grammar)}</p>
+        <h3>Focus words</h3>
+        <dl class="focus-words">${words.map((word) => `
+          <div><dt>${escapeHtml(word.source_word)}</dt><dd>${escapeHtml(word.translation_text)}</dd></div>`).join("")}</dl>
+        <h3>Worked example</h3>
+        <p><strong>${escapeHtml(example.source)}</strong><br>${escapeHtml(example.translation)}</p>
+      </section>
+      <section class="practice-exercises" aria-labelledby="practice-heading">
+        <h3 id="practice-heading">Your turn</h3>
+        <p class="muted">Write your answer, then reveal an example to compare. Other answers may also be correct.</p>
+        <ol class="practice-list">${exercises.map((item, index) => {
+          const production = index % 2 === 1;
+          const target = production ? language : translationLanguage;
+          const prompt = production ? item.translation : item.source;
+          const answer = production ? item.source : item.translation;
+          return `<li class="practice-exercise">
+            <h4>${production ? "Write" : "Translate"} in ${escapeHtml(target)}</h4>
+            <p id="practice-prompt-${index}">${escapeHtml(prompt)}</p>
+            <label for="practice-answer-${index}">Your answer</label>
+            <textarea id="practice-answer-${index}" rows="2" aria-describedby="practice-prompt-${index}"></textarea>
+            <details><summary>Reveal example answer</summary><p>${escapeHtml(answer)}</p></details>
+          </li>`;
+        }).join("")}</ol>
+      </section>`;
+    titleEl.focus();
   }
-  
+
+  function updatePracticeControls() {
+    const count = selectedWords().length;
+    wordCountEl.textContent = `${count} of ${MAX_PRACTICE_WORDS} selected`;
+    wordSelectionListEl.querySelectorAll("input").forEach((input) => {
+      input.disabled = generating || (!input.checked && count >= MAX_PRACTICE_WORDS);
+    });
+    clearWordsBtn.disabled = generating || count === 0;
+    generateSessionBtn.disabled = generating;
+    generateSessionBtn.textContent = generating ? "Generating…" : "Generate practice";
+    if (remainingAttempts !== null) remainingEl.textContent = `${remainingAttempts} of 5 attempts remaining today (UTC)`;
+  }
+
   async function ensureUserLanguage(languageName) {
     const normalized = languageName.trim();
+    if (!normalized) throw new Error("Enter a language name first.");
     const { data, error } = await supabase.from("user_languages").upsert([{ user_id: currentUser.id, language_name: normalized }], { onConflict: "user_id,language_name" }).select("id, language_name").single();
     if (error) throw error;
     return data;
@@ -230,8 +269,15 @@ document.addEventListener("DOMContentLoaded", () => {
     const { data, error } = await supabase.from("material_words").select("id, source_word, normalized_word, translation_text, english_text, part_of_speech, conjugation_table, declension_table, frequency").eq("user_id", currentUser.id).eq("user_language_id", languageId).order("source_word", { ascending: true });
     if (error) throw error;
     if (!wordSelectionListEl) return data || [];
-    wordSelectionListEl.innerHTML = (data || []).map((row) => `<label class="word-choice"><input type="checkbox" value="${escapeHtml(row.normalized_word)}"><span>${escapeHtml(row.source_word)}</span><small>${escapeHtml(row.translation_text || row.english_text || "")}</small></label>`).join("") || `<p class="muted">No words loaded yet.</p>`;
-    if (wordSelectionEl) wordSelectionEl.hidden = !(data || []).length;
+    const unique = new Map();
+    for (const row of data || []) {
+      if (row.normalized_word?.length <= 128 && row.source_word?.length <= 128 && !unique.has(row.normalized_word)) {
+        unique.set(row.normalized_word, row);
+      }
+    }
+    wordSelectionListEl.innerHTML = [...unique.values()].map((row) => `<label class="word-choice"><input type="checkbox" value="${escapeHtml(row.normalized_word)}"><span>${escapeHtml(row.source_word)}</span><small>${escapeHtml(row.translation_text || row.english_text || "")}</small></label>`).join("");
+    wordSelectionEl.hidden = unique.size === 0;
+    updatePracticeControls();
     return data || [];
   }
 
@@ -240,13 +286,36 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   async function generateStudySession() {
+    if (generating) return;
     if (!currentLanguageId) throw new Error("Select or load a language first.");
-    setStatus("Generating a private study session…");
-    const { data, error } = await supabase.functions.invoke("generate-study-session", { body: { userLanguageId: currentLanguageId, selectedWords: selectedWords(), useAll: selectedWords().length === 0 } });
-    if (error) throw error;
-    addTokenUsage(data.usage);
-    renderStudyMaterial({ title: data.title || "Generated study session", language: currentLanguageName, translationLanguage: data.translationLanguage || "English", items: data.items || [], words: data.words || [] });
-    setStatus("Generated a study set. Use Generate more after finishing this collection.");
+    const languageId = currentLanguageId;
+    const revision = materialRevision;
+    const language = currentLanguageName;
+    const translationLanguage = currentTranslationLanguage;
+    generating = true;
+    updatePracticeControls();
+    setStatus("Generating sentence practice…");
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-study-session", {
+        body: { userLanguageId: languageId, selectedWords: selectedWords(), translationLanguage },
+      });
+      if (error) {
+        const response = error.context;
+        const problem = response instanceof Response ? await response.json().catch(() => null) : null;
+        if (Number.isInteger(problem?.remaining)) remainingAttempts = problem.remaining;
+        addTokenUsage(problem?.usage);
+        throw new Error(problem?.error || "Could not generate practice. Try again later.");
+      }
+      if (Number.isInteger(data.remaining)) remainingAttempts = data.remaining;
+      addTokenUsage(data.usage);
+      if (!data.grammar) throw new Error("This version of sentence practice requires an updated study-session service.");
+      if (revision !== materialRevision || languageId !== currentLanguageId) return;
+      renderPractice(data, language);
+      setStatus("Practice ready. Review the example, then try four sentences.");
+    } finally {
+      generating = false;
+      updatePracticeControls();
+    }
   }
 
   async function loadLatestMaterial(languageId) {
@@ -290,7 +359,7 @@ document.addEventListener("DOMContentLoaded", () => {
     userLanguages.forEach((lang) => {
       const btn = document.createElement("button");
       btn.className = "lesson"; btn.dataset.userLesson = "1"; btn.type = "button"; btn.textContent = `${lang.language_name} (latest material)`;
-      btn.addEventListener("click", async () => { try { await loadLatestMaterial(lang.id); drawer?.classList.remove("open"); } catch (error) { setStatus(error.message); } });
+      btn.addEventListener("click", async () => { try { await loadLatestMaterial(lang.id); toggleDrawer(false); } catch (error) { setStatus(error.message); } });
       lessonsList.insertBefore(btn, separator || null);
     });
   }
@@ -306,9 +375,12 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (error) { setStatus(error.message || "Failed to load material."); }
   });
 
-  startExistingLessonBtn?.addEventListener("click", async () => { try { if (!existingLanguageSelectEl.value) throw new Error("Select an existing language."); await loadLatestMaterial(existingLanguageSelectEl.value); setStatus("Latest material loaded. Select words or generate with all material."); } catch (error) { setStatus(error.message || "Could not start lesson."); } });
-  selectAllWordsBtn?.addEventListener("click", () => wordSelectionListEl?.querySelectorAll("input[type='checkbox']").forEach((input) => { input.checked = true; }));
-  clearWordsBtn?.addEventListener("click", () => wordSelectionListEl?.querySelectorAll("input[type='checkbox']").forEach((input) => { input.checked = false; }));
+  startExistingLessonBtn?.addEventListener("click", async () => { try { if (!existingLanguageSelectEl.value) throw new Error("Select an existing language."); await loadLatestMaterial(existingLanguageSelectEl.value); setStatus("Material loaded. Choose focus words or let the app pick."); } catch (error) { setStatus(error.message || "Could not start lesson."); } });
+  wordSelectionListEl.addEventListener("change", updatePracticeControls);
+  clearWordsBtn.addEventListener("click", () => {
+    wordSelectionListEl.querySelectorAll("input:checked").forEach((input) => { input.checked = false; });
+    updatePracticeControls();
+  });
   generateSessionBtn?.addEventListener("click", () => generateStudySession().catch((error) => setStatus(error.message || "Could not generate study session.")));
 
   async function initPrivateSession() {
@@ -321,5 +393,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
  menuComeback?.addEventListener("click", () => { localStorage.removeItem("signed_out"); drawer?.classList.remove("open"); if (window.APP_CONFIG.COMEBACK_URL) window.location.href = window.APP_CONFIG.COMEBACK_URL; });
   menuSignout?.addEventListener("click", async () => { await supabase.auth.signOut(); localStorage.setItem("signed_out", "1"); drawer?.classList.remove("open"); document.body.classList.add("signed-out"); alert("Signed out. Your study history stays on this device."); });
+  setPrivateSessionControlsDisabled(true);
   initPrivateSession().catch((error) => { console.error(error); setStatus(`Could not initialize private sessions: ${error.message}`); });
 });

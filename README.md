@@ -5,7 +5,8 @@ Language learning
 - License: [Business Source License 1.1](./LICENSE) (non-production). Production use requires a [Commercial License](./COMMERCIAL_LICENSE.md).
 
 ## Private sessions
-- Product/LLM plan: [`docs/private-sessions-llm-plan.md`](./docs/private-sessions-llm-plan.md)
+- [Private-session design](./docs/private-sessions-redesign.md)
+- For sentence practice, apply [the quota migration](./supabase/migrations/20261118000100_private_practice_quota.sql) before deploying the updated `generate-study-session` Edge Function. Each account gets five generation attempts per UTC day. Reviewing examples and entering answers run in the browser without additional model requests.
 
 ## Supabase block history table
 
